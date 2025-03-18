@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap');
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif,'Urbanist';
   line-height: 1.5;
   font-weight: 400;
 
@@ -23,11 +25,12 @@ a:hover {
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  background: linear-gradient(298.12deg, #8C8C8C 10.72%, #E3E3E3 105.79%);
   min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Urbanist', sans-serif;
 }
 
 h1 {
@@ -66,3 +69,7 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
