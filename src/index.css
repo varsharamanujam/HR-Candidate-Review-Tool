@@ -103,7 +103,6 @@ html, body {
 }
 
 .chakra-tabs__tab[aria-selected="true"] {
-  color: var(--color-purple) !important;
   font-weight: 600;
 }
 
