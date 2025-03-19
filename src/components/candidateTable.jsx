@@ -10,24 +10,27 @@ import {
   Flex,
   Text,
   Heading,
+  Avatar,
   Center,
   Spinner,
   Icon,
 } from "@chakra-ui/react";
 import { StarIcon, ArrowUpIcon, ArrowDownIcon } from "@chakra-ui/icons";
-import { fetchCandidates } from "../api"; // Your API function to fetch candidate data
+import { fetchCandidates } from "../api";
 
 const CandidateTable = () => {
-  // STATE: raw candidate data and sorted candidate data.
+  // STATE: raw candidate data and a loading flag.
   const [candidates, setCandidates] = useState([]);
-  const [sortedCandidates, setSortedCandidates] = useState([]);
-  // STATE: loading flag.
   const [loading, setLoading] = useState(true);
+
   // STATE: sorting field and direction.
   const [sortField, setSortField] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
 
-  // FETCH DATA: When the component mounts, fetch candidates from the API.
+  // STATE: sorted candidate data.
+  const [sortedCandidates, setSortedCandidates] = useState([]);
+
+  // FETCH DATA: When the component mounts, fetch candidate data from the API.
   useEffect(() => {
     const loadCandidates = async () => {
       try {
@@ -42,7 +45,7 @@ const CandidateTable = () => {
     loadCandidates();
   }, []);
 
-  // SORTING: When sortField, sortDirection, or candidates changes, sort the data.
+  // SORTING: When candidates or the sort settings change, sort the data.
   useEffect(() => {
     if (sortField) {
       const sorted = [...candidates].sort((a, b) => {
@@ -62,11 +65,12 @@ const CandidateTable = () => {
       });
       setSortedCandidates(sorted);
     } else {
+      // If no sort field is set, display the data as is.
       setSortedCandidates(candidates);
     }
   }, [sortField, sortDirection, candidates]);
 
-  // HANDLE SORT: Clicking on a header sets/toggles the sort field/direction.
+  // HANDLE SORT: Clicking on a header toggles the sort direction or sets a new sort field.
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -76,8 +80,7 @@ const CandidateTable = () => {
     }
   };
 
-  // SORT INDICATOR: Always display an arrow. If the column is active, show the correct arrow with full opacity.
-  // If not, show an up arrow with lower opacity.
+  // SORT INDICATOR: Always show an arrow; if this column is active, use full opacity and show the correct arrow.
   const SortIndicator = ({ field }) => (
     <Icon
       as={sortField === field ? (sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon) : ArrowUpIcon}
@@ -89,15 +92,12 @@ const CandidateTable = () => {
     />
   );
 
-  // HELPER: Format the date as DD/MM/YY.
+  // HELPER: Format date as DD/MM/YY.
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return `${String(date.getDate()).padStart(2, "0")}/${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}/${date.getFullYear().toString().substring(2)}`;
+    return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear().toString().substring(2)}`;
   };
 
-  // If still loading, show a spinner.
   if (loading) {
     return (
       <Center h="200px">
@@ -106,7 +106,7 @@ const CandidateTable = () => {
     );
   }
 
-  // RENDER: Display the table with headers and sorted candidate rows.
+  // RENDER: Display a heading and the table with sorted candidate rows.
   return (
     <Box bg="#151515" p={6} borderRadius="md">
       <Heading size="lg" color="white" mb={6}>
@@ -115,58 +115,95 @@ const CandidateTable = () => {
       <Box overflowX="auto">
         <Table variant="simple" size="md">
           <Thead>
-            <Tr bg="#242424">
-              <Th color="white" fontSize="xs" cursor="pointer" onClick={() => handleSort("name")}>
+            <Tr>
+              {/* Sortable columns */}
+              <Th
+                color="gray.500"
+                fontSize="xs"
+                textTransform="uppercase"
+                cursor="pointer"
+                onClick={() => handleSort("name")}
+              >
                 <Flex align="center">
-                  Candidate Name
-                  <SortIndicator field="name" />
+                  Candidate Name <SortIndicator field="name" />
                 </Flex>
               </Th>
-              <Th color="white" fontSize="xs" cursor="pointer" onClick={() => handleSort("rating")}>
+              <Th
+                color="gray.500"
+                fontSize="xs"
+                textTransform="uppercase"
+                cursor="pointer"
+                onClick={() => handleSort("rating")}
+              >
                 <Flex align="center">
-                  Rating
-                  <SortIndicator field="rating" />
+                  Rating <SortIndicator field="rating" />
                 </Flex>
               </Th>
-              <Th color="white" fontSize="xs" cursor="pointer" onClick={() => handleSort("stage")}>
+              <Th
+                color="gray.500"
+                fontSize="xs"
+                textTransform="uppercase"
+                cursor="pointer"
+                onClick={() => handleSort("stage")}
+              >
                 <Flex align="center">
-                  Stage
-                  <SortIndicator field="stage" />
+                  Stages <SortIndicator field="stage" />
                 </Flex>
               </Th>
-              <Th color="white" fontSize="xs" cursor="pointer" onClick={() => handleSort("applied_role")}>
+              <Th
+                color="gray.500"
+                fontSize="xs"
+                textTransform="uppercase"
+                cursor="pointer"
+                onClick={() => handleSort("applied_role")}
+              >
                 <Flex align="center">
-                  Applied Role
-                  <SortIndicator field="applied_role" />
+                  Applied Role <SortIndicator field="applied_role" />
                 </Flex>
               </Th>
-              <Th color="white" fontSize="xs" cursor="pointer" onClick={() => handleSort("application_date")}>
+              <Th
+                color="gray.500"
+                fontSize="xs"
+                textTransform="uppercase"
+                cursor="pointer"
+                onClick={() => handleSort("application_date")}
+              >
                 <Flex align="center">
-                  Application Date
-                  <SortIndicator field="application_date" />
+                  Application Date <SortIndicator field="application_date" />
                 </Flex>
               </Th>
-              {/* Attachments column is not sortable */}
-              <Th color="white" fontSize="xs">
-                <Flex align="center">Attachments</Flex>
+              {/* Non-sortable column */}
+              <Th color="gray.500" fontSize="xs" textTransform="uppercase">
+                Attachments
               </Th>
             </Tr>
           </Thead>
           <Tbody>
             {sortedCandidates.map((candidate) => (
-              <Tr key={candidate.id} _hover={{ bg: "#2A2A2A" }}>
-                <Td color="white">{candidate.name}</Td>
-                <Td color="white">
-                  <Flex align="center">
-                    <StarIcon color="yellow.400" mr="1" />
-                    <Text>{candidate.rating.toFixed(1)}</Text>
+              <Tr key={candidate.id} _hover={{ bg: "#1A1A1A" }}>
+                <Td>
+                  <Flex align="center" gap={3}>
+                    <Avatar size="sm" name={candidate.name} />
+                    <Text color="white">{candidate.name}</Text>
                   </Flex>
                 </Td>
-                <Td color="white">{candidate.stage}</Td>
-                <Td color="white">{candidate.applied_role}</Td>
-                <Td color="white">{formatDate(candidate.application_date)}</Td>
-                <Td color="white">
-                  <Flex align="center">{candidate.attachments} files</Flex>
+                <Td>
+                  <Flex align="center" gap={1}>
+                    <StarIcon color="yellow.400" boxSize={4} />
+                    <Text color="white">{candidate.rating.toFixed(1)}</Text>
+                  </Flex>
+                </Td>
+                <Td>
+                  <Text color="white">{candidate.stage}</Text>
+                </Td>
+                <Td>
+                  <Text color="white">{candidate.applied_role}</Text>
+                </Td>
+                <Td>
+                  <Text color="white">{formatDate(candidate.application_date)}</Text>
+                </Td>
+                <Td>
+                  <Text color="white">{candidate.attachments} files</Text>
                 </Td>
               </Tr>
             ))}
