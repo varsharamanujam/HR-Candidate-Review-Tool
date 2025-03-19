@@ -42,7 +42,6 @@ const Sidebar = ({ isMobile = false, onClose, display }) => {
       borderRight="1px"
       borderColor="gray.700"
       className="bg-primary border-gray-700"
-      pl="0"
     >
       <VStack align="stretch" spacing="6" pt="5" pb="5">
         <Text
@@ -57,15 +56,14 @@ const Sidebar = ({ isMobile = false, onClose, display }) => {
           Recruitment
         </Text>
 
-        <Box>
+        <Box pr="8">
           <Button
             display="flex"
             alignItems="center"
             justifyContent="flex-start"
             gap="3"
             py="3"
-            px="4"
-            borderRadius="0 full full 0"
+            borderRadius="0 18px 18px 0"
             fontSize="md"
             fontWeight="semibold"
             w="full"

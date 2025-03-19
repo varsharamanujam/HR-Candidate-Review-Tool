@@ -16,10 +16,8 @@ import {
   Icon,
 } from "@chakra-ui/react";
 import { StarIcon, ArrowUpIcon, ArrowDownIcon } from "@chakra-ui/icons";
-import { fetchCandidates } from "../api"; // Import your API function
 
-// The candidateList component now fetches candidates from the backend API.
-const CandidateList = ({ onSelect }) => {
+const CandidateList = ({ candidates = null, onSelect }) => {
   // Color variables
   const bgColor = "#151515";
   const tableBgColor = "#1E1E1E";
@@ -34,93 +32,16 @@ const CandidateList = ({ onSelect }) => {
   const [displayCandidates, setDisplayCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Function to sort candidates in the same way as before
-  const sortCandidates = (candidates, field, direction) => {
-    return [...candidates].sort((a, b) => {
-      let comparison = 0;
-
-      if (field === "name") {
-        comparison = a.name.localeCompare(b.name);
-      } else if (field === "rating") {
-        comparison = a.rating - b.rating;
-      } else if (field === "stage") {
-        comparison = a.stage.localeCompare(b.stage);
-      } else if (field === "applied_role") {
-        comparison = a.applied_role.localeCompare(b.applied_role);
-      } else if (field === "application_date") {
-        comparison = new Date(a.application_date) - new Date(b.application_date);
-      } else if (field === "attachments") {
-        comparison = a.attachments - b.attachments;
-      }
-      return direction === "asc" ? comparison : -comparison;
-    });
-  };
-
-  // Handle sort indicator rendering
-  const SortIndicator = ({ field }) => {
-    const isActive = sortField === field;
-    return (
-      <Box ml={1} opacity={isActive ? 1 : 0.3}>
-        <Icon
-          as={sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon}
-          w={3}
-          h={3}
-          color={isActive ? primaryColor : "gray.400"}
-        />
-      </Box>
-    );
-  };
-
-  // Helper to get a color for each stage
-  const getStageColor = (stage) => {
-    switch (stage) {
-      case "Screening":
-        return "#3182CE";
-      case "HR Round":
-        return "#805AD5";
-      case "Technical Round":
-        return "#DD6B20";
-      case "Design Challenge":
-        return "#D53F8C";
-      case "Round 2 Interview":
-        return "#00B5D8";
-      case "Rejected":
-        return "#E53E3E";
-      case "Selected":
-        return "#38A169";
-      default:
-        return "#718096";
-    }
-  };
-
-  // Helper to format dates (DD/MM/YY)
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return `${String(date.getDate()).padStart(2, "0")}/${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}/${date.getFullYear().toString().substring(2)}`;
-  };
-
-  // Fetch candidates from API on component mount or when sorting changes.
+  // Use mock data if no candidates provided
   useEffect(() => {
-    const loadCandidates = async () => {
-      setLoading(true);
-      try {
-        // Call the API to fetch candidate data.
-        const data = await fetchCandidates();
-        // Sort the fetched data
-        const sorted = sortCandidates(data, sortField, sortDirection);
-        setDisplayCandidates(sorted);
-      } catch (error) {
-        console.error("Error fetching candidates:", error);
-      }
-      setLoading(false);
-    };
+    setLoading(true);
+    const dataToUse = candidates?.length > 0 ? candidates : mockCandidates;
+    const sorted = sortCandidates(dataToUse, sortField, sortDirection);
+    setDisplayCandidates(sorted);
+    setLoading(false);
+  }, [candidates, sortField, sortDirection]);
 
-    loadCandidates();
-  }, [sortField, sortDirection]);
-
-  // Handle sort when header is clicked
+  // Handle sort action
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -128,6 +49,65 @@ const CandidateList = ({ onSelect }) => {
       setSortField(field);
       setSortDirection("asc");
     }
+  };
+
+  // Sort the candidates
+  const sortCandidates = (candidates, field, direction) => {
+    return [...candidates].sort((a, b) => {
+      let comparison = 0;
+      
+      if (field === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (field === 'rating') {
+        comparison = a.rating - b.rating;
+      } else if (field === 'stage') {
+        comparison = a.stage.localeCompare(b.stage);
+      } else if (field === 'applied_role') {
+        comparison = a.applied_role.localeCompare(b.applied_role);
+      } else if (field === 'application_date') {
+        comparison = new Date(a.application_date) - new Date(b.application_date);
+      } else if (field === 'attachments') {
+        comparison = a.attachments - b.attachments;
+      }
+      
+      return direction === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  // Sort indicator component
+  const SortIndicator = ({ field }) => {
+    const isActive = sortField === field;
+    
+    return (
+      <Box ml={1} opacity={isActive ? 1 : 0.3}>
+        <Icon 
+          as={sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon} 
+          w={3} 
+          h={3}
+          color={isActive ? primaryColor : "gray.400"}
+        />
+      </Box>
+    );
+  };
+
+  // Get color for stage badge
+  const getStageColor = (stage) => {
+    switch(stage) {
+      case 'Screening': return '#3182CE';
+      case 'HR Round': return '#805AD5';
+      case 'Technical Round': return '#DD6B20';
+      case 'Design Challenge': return '#D53F8C';
+      case 'Round 2 Interview': return '#00B5D8';
+      case 'Rejected': return '#E53E3E';
+      case 'Selected': return '#38A169';
+      default: return '#718096';
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return `${(date.getDate()).toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().substring(2)}`;
   };
 
   if (loading) {
@@ -148,9 +128,9 @@ const CandidateList = ({ onSelect }) => {
         <Table variant="simple" size="md">
           <Thead>
             <Tr bg={headerBgColor}>
-              <Th
-                fontFamily="urbanist"
-                color="white"
+              <Th 
+                fontFamily="urbanist" 
+                color="white" 
                 cursor="pointer"
                 onClick={() => handleSort("name")}
                 textTransform="uppercase"
@@ -163,8 +143,8 @@ const CandidateList = ({ onSelect }) => {
                   <SortIndicator field="name" />
                 </Flex>
               </Th>
-              <Th
-                fontFamily="urbanist"
+              <Th 
+                fontFamily="urbanist" 
                 color="white"
                 cursor="pointer"
                 onClick={() => handleSort("rating")}
@@ -178,8 +158,8 @@ const CandidateList = ({ onSelect }) => {
                   <SortIndicator field="rating" />
                 </Flex>
               </Th>
-              <Th
-                fontFamily="urbanist"
+              <Th 
+                fontFamily="urbanist" 
                 color="white"
                 cursor="pointer"
                 onClick={() => handleSort("stage")}
@@ -193,8 +173,8 @@ const CandidateList = ({ onSelect }) => {
                   <SortIndicator field="stage" />
                 </Flex>
               </Th>
-              <Th
-                fontFamily="urbanist"
+              <Th 
+                fontFamily="urbanist" 
                 color="white"
                 cursor="pointer"
                 onClick={() => handleSort("applied_role")}
@@ -208,8 +188,8 @@ const CandidateList = ({ onSelect }) => {
                   <SortIndicator field="applied_role" />
                 </Flex>
               </Th>
-              <Th
-                fontFamily="urbanist"
+              <Th 
+                fontFamily="urbanist" 
                 color="white"
                 display={useBreakpointValue({ base: "none", md: "table-cell" })}
                 cursor="pointer"
@@ -224,8 +204,8 @@ const CandidateList = ({ onSelect }) => {
                   <SortIndicator field="application_date" />
                 </Flex>
               </Th>
-              <Th
-                fontFamily="urbanist"
+              <Th 
+                fontFamily="urbanist" 
                 color="white"
                 display={useBreakpointValue({ base: "none", lg: "table-cell" })}
                 cursor="pointer"
@@ -244,18 +224,18 @@ const CandidateList = ({ onSelect }) => {
           </Thead>
           <Tbody bg={tableBgColor}>
             {displayCandidates.map((candidate) => (
-              <Tr
-                key={candidate.id}
-                _hover={{ bg: hoverBg }}
+              <Tr 
+                key={candidate.id} 
+                _hover={{ bg: hoverBg }} 
                 className="candidate-row"
                 onClick={() => onSelect && onSelect(candidate)}
               >
                 <Td fontFamily="urbanist" borderColor={borderColor}>
                   <Flex align="center" gap="3">
-                    <Box
-                      w="8"
-                      h="8"
-                      borderRadius="full"
+                    <Box 
+                      w="8" 
+                      h="8" 
+                      borderRadius="full" 
                       bg="gray.600"
                       display="flex"
                       alignItems="center"
@@ -278,18 +258,16 @@ const CandidateList = ({ onSelect }) => {
                     {candidate.stage}
                   </Text>
                 </Td>
-                <Td fontFamily="urbanist" borderColor={borderColor}>
-                  {candidate.applied_role}
-                </Td>
-                <Td
-                  fontFamily="urbanist"
+                <Td fontFamily="urbanist" borderColor={borderColor}>{candidate.applied_role}</Td>
+                <Td 
+                  fontFamily="urbanist" 
                   display={useBreakpointValue({ base: "none", md: "table-cell" })}
                   borderColor={borderColor}
                 >
                   {formatDate(candidate.application_date)}
                 </Td>
-                <Td
-                  fontFamily="urbanist"
+                <Td 
+                  fontFamily="urbanist" 
                   display={useBreakpointValue({ base: "none", lg: "table-cell" })}
                   borderColor={borderColor}
                 >
@@ -306,4 +284,4 @@ const CandidateList = ({ onSelect }) => {
   );
 };
 
-export default CandidateList;
+export default CandidateList; 
