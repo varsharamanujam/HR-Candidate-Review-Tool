@@ -41,7 +41,7 @@ import {
   CheckIcon,
   TimeIcon,
 } from "@chakra-ui/icons";
-import { fetchCandidates, filterCandidates, getCandidate } from "../api";
+import { fetchCandidates, filterCandidates, getCandidate, generateCandidatePDF } from "../api";
 
 function generateMonthOptions() {
   const options = [];
@@ -83,6 +83,7 @@ const formatDate = (dateString) => {
 const CandidateTable = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Sorting state
   const [sortField, setSortField] = useState("");
@@ -660,6 +661,7 @@ const CandidateTable = () => {
                     color="white"
                     _hover={{ opacity: 0.9 }}
                     rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
+                    borderRadius="none"
                   >
                     Move to Next Step
                   </Button>
@@ -667,6 +669,7 @@ const CandidateTable = () => {
                     bgGradient="linear(to-r, #38E0AE, #AF36FF)"
                     color="white"
                     _hover={{ opacity: 0.9 }}
+                    borderRadius="none"
                   >
                     Reject
                   </Button>
@@ -674,6 +677,26 @@ const CandidateTable = () => {
                     bgGradient="linear(to-r, #E03838, #FFA836)"
                     color="white"
                     _hover={{ opacity: 0.9 }}
+                    borderRadius="none"
+                    isLoading={pdfLoading}
+                    onClick={async () => {
+                      setPdfLoading(true);
+                      try {
+                        const blob = await generateCandidatePDF(selectedCandidate.id);
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${selectedCandidate.name.replace(/\s+/g, '_')}_details.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                      } catch (err) {
+                        console.error("Error generating PDF:", err);
+                      } finally {
+                        setPdfLoading(false);
+                      }
+                    }}
                   >
                     PDF
                   </Button>
