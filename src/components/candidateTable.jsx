@@ -27,13 +27,19 @@ import {
   DrawerHeader,
   DrawerBody,
   useDisclosure,
-  Button
+  Button,
+  VStack,
+  Circle,
 } from "@chakra-ui/react";
 import {
   StarIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   AttachmentIcon,
+  EmailIcon,
+  PhoneIcon,
+  CheckIcon,
+  TimeIcon,
 } from "@chakra-ui/icons";
 import { fetchCandidates, filterCandidates, getCandidate } from "../api";
 
@@ -466,27 +472,211 @@ const CandidateTable = () => {
       {/* Candidate Detail Drawer */}
       <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="md">
         <DrawerOverlay />
-        <DrawerContent bg="#1E1E1E">
+        <DrawerContent bg="#151515">
           <DrawerCloseButton color="white" />
-          <DrawerHeader color="white">
-            {selectedCandidate ? selectedCandidate.name : "Candidate Details"}
-          </DrawerHeader>
+          <DrawerHeader color="white">Candidate Details</DrawerHeader>
           <DrawerBody>
             {selectedCandidate ? (
               <Box color="white">
-                {/* Example Fields */}
-                <Text>Email: {selectedCandidate.email}</Text>
-                <Text>Phone: {selectedCandidate.phone}</Text>
-                <Text>Stage: {selectedCandidate.stage}</Text>
-                <Text>Status: {selectedCandidate.status}</Text>
-                <Text>Role: {selectedCandidate.applied_role}</Text>
-                <Text>Rating: {selectedCandidate.rating}</Text>
-                {/* You can add more fields, 
-                    such as experience, location, attachments, etc. */}
-                <Flex mt={4} gap={3}>
-                  <Button colorScheme="green">Move to Next Step</Button>
-                  <Button colorScheme="red">Reject</Button>
-                  <Button colorScheme="purple">PDF</Button>
+                {/* Profile Section */}
+                <Box
+                  w="full"
+                  maxW="md"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  py={3}
+                  px={4}
+                >
+                  <VStack align="center" spacing={3}>
+                    <Avatar
+                      size="lg"
+                      name={selectedCandidate.name}
+                    />
+                    <VStack spacing={1} mb={4}>
+                      <Text fontSize="large" fontWeight="bold">
+                        {selectedCandidate.name}
+                      </Text>
+                      <Text color="gray.500" fontSize="md">
+                        {selectedCandidate.applied_role}
+                      </Text>
+                    </VStack>
+                    
+                    <Flex gap={12} justify="center">
+                      <Box>
+                        <Flex gap={3}>
+                          <Icon as={EmailIcon} color="gray.500" boxSize={5} />
+                          <Box>
+                            <Text color="gray.500" fontSize="xs" letterSpacing="wide">
+                              EMAIL
+                            </Text>
+                            <Text color="white" fontSize="sm">
+                              {selectedCandidate.email}
+                            </Text>
+                          </Box>
+                        </Flex>
+                      </Box>
+                      <Box>
+                        <Flex gap={3}>
+                          <Icon as={PhoneIcon} color="gray.500" boxSize={5} />
+                          <Box>
+                            <Text color="gray.500" fontSize="xs" letterSpacing="wide">
+                              PHONE NUMBER
+                            </Text>
+                            <Text color="white" fontSize="sm">
+                              {selectedCandidate.phone}
+                            </Text>
+                          </Box>
+                        </Flex>
+                      </Box>
+                    </Flex>
+                  </VStack>
+                </Box>
+
+                {/* Application Details */}
+                <Box
+                  w="full"
+                  maxW="md"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  p={6}
+                  mt={8}
+                  mb={8}
+                >
+                  <Text fontSize="xl" fontWeight="semibold" mb={6}>
+                    Application Details
+                  </Text>
+                  <VStack spacing={0} align="stretch" position="relative">
+                    {/* Vertical line */}
+                    <Box
+                      position="absolute"
+                      left="15px"
+                      top="30px"
+                      bottom="30px"
+                      width="2px"
+                      bg="#333"
+                      zIndex={0}
+                    />
+                    {[
+                      { label: "Screening", date: "March 20, 2023" },
+                      { label: "Design Challenge", date: "March 22, 2023" },
+                      { label: "Interview" },
+                      { label: "HR Round" },
+                      { label: "Hired" }
+                    ].map((stage, idx) => {
+                      // Determine stage status based on selectedCandidate.stage
+                      const currentStageIndex = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"]
+                        .findIndex(s => s === selectedCandidate.stage);
+                      
+                      let status = "pending";
+                      if (idx < currentStageIndex) {
+                        status = "completed";
+                      } else if (idx === currentStageIndex) {
+                        status = "current";
+                      }
+
+                      return (
+                        <Flex key={stage.label} align="flex-start" gap={4} py={3} position="relative">
+                          <Circle
+                            size="8"
+                            bg={
+                              status === "completed" ? "green.500" :
+                              status === "current" ? "#FFB547" :
+                              "#333"
+                            }
+                            zIndex={1}
+                          >
+                            {status === "completed" ? (
+                              <CheckIcon color="white" boxSize={4} />
+                            ) : (
+                              <Text color="white" fontSize="sm">{idx + 1}</Text>
+                            )}
+                          </Circle>
+                          <Box flex="1">
+                            <Text fontSize="sm" color="white" mb={stage.date ? 1 : 0}>
+                              {stage.label}
+                            </Text>
+                            {stage.date && (
+                              <Text fontSize="xs" color="gray.400">
+                                {stage.date}
+                              </Text>
+                            )}
+                          </Box>
+                          {status === "current" && (
+                            <Box
+                              bg="#2A2A2A"
+                              px={3}
+                              py={1}
+                              borderRadius="full"
+                              alignSelf="center"
+                            >
+                              <Text fontSize="xs" color="#FFB547">
+                                Under Review
+                              </Text>
+                            </Box>
+                          )}
+                        </Flex>
+                      );
+                    })}
+                  </VStack>
+                </Box>
+
+                {/* Experience */}
+                <Box
+                  w="full"
+                  maxW="md"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  p={6}
+                  mt={8}
+                  mb={8}
+                >
+                <Box mb={8}>
+                  <Text fontSize="lg" fontWeight="semibold" mb={4}>
+                    Experience
+                  </Text>
+                  
+                    <Flex align="center" gap={3} mb={2}>
+                      <Avatar size="sm" name="Airbnb" bg="red.500" />
+                      <Box>
+                        <Text fontWeight="medium">Airbnb</Text>
+                        <Text fontSize="sm" color="gray.400">
+                          Oct '20 - Present
+                        </Text>
+                      </Box>
+                    </Flex>
+                    <Text fontSize="sm" color="gray.400">
+                      Led the redesign of the booking process for Airbnb's
+                      mobile app, resulting in a 36% increase in conversion
+                      rates and improved user satisfaction.
+                    </Text>
+                </Box>
+                </Box>
+
+                {/* Action Buttons */}
+                <Flex gap={3}>
+                  <Button
+                    flex="1"
+                    bgGradient="linear(to-r, #6E38E0, #FF5F36)"
+                    color="white"
+                    _hover={{ opacity: 0.9 }}
+                    rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
+                  >
+                    Move to Next Step
+                  </Button>
+                  <Button
+                    bgGradient="linear(to-r, #38E0AE, #AF36FF)"
+                    color="white"
+                    _hover={{ opacity: 0.9 }}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    bgGradient="linear(to-r, #E03838, #FFA836)"
+                    color="white"
+                    _hover={{ opacity: 0.9 }}
+                  >
+                    PDF
+                  </Button>
                 </Flex>
               </Box>
             ) : (
