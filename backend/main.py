@@ -22,6 +22,7 @@ import json
 import io
 import weasyprint
 from datetime import datetime, timedelta
+from sqlalchemy import func
 
 app = FastAPI()
 
@@ -145,26 +146,9 @@ def filter_candidates(
     status: str = None,
     stage: str = None,
     search: str = None,
-    sort_by: str = "name"
+    sort_by: str = "name",
+    month_year: str = None,
 ):
-    """
-    Filter and sort candidates based on various criteria.
-
-    Args:
-        db (Session): Database session dependency
-        role (str, optional): Filter by applied role
-        status (str, optional): Filter by application status
-        stage (str, optional): Filter by interview stage
-        search (str, optional): Search in name, email, and role
-        sort_by (str, optional): Sort by field (name/application_date/rating)
-
-    Returns:
-        List[Candidate]: Filtered and sorted list of candidates
-
-    Example:
-        response = await client.get("/candidates/filter/?role=Developer&status=Pending")
-        filtered_candidates = response.json()
-    """
     query = db.query(Candidate)
     
     if role:
@@ -179,15 +163,30 @@ def filter_candidates(
             Candidate.email.contains(search) |
             Candidate.applied_role.contains(search)
         )
-
-    # Sorting
+    
+    # Handle month_year filter
+    if month_year:
+        try:
+            year, month = map(int, month_year.split("-"))
+            # Create a datetime range for the month
+            start_date = datetime(year, month, 1)
+            if month == 12:
+                end_date = datetime(year + 1, 1, 1)
+            else:
+                end_date = datetime(year, month + 1, 1)
+            query = query.filter(Candidate.application_date >= start_date,
+                                 Candidate.application_date < end_date)
+        except Exception as e:
+            print("Error processing month_year:", e)
+    
+    # Sorting logic
     if sort_by == "name":
         query = query.order_by(Candidate.name)
     elif sort_by == "application_date":
         query = query.order_by(Candidate.application_date.desc())
     elif sort_by == "rating":
         query = query.order_by(Candidate.rating.desc())
-
+    
     return query.all()
 
 @app.post("/candidates/import/")

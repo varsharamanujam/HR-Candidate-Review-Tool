@@ -13,24 +13,65 @@ import {
   Center,
   Spinner,
   Icon,
-  Heading,
   Tabs,
   TabList,
   TabPanels,
   Tab,
   TabPanel,
+  Select,
+  Heading,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  DrawerHeader,
+  DrawerBody,
+  useDisclosure,
+  Button
 } from "@chakra-ui/react";
-import { StarIcon, ArrowUpIcon, ArrowDownIcon } from "@chakra-ui/icons";
-import { fetchCandidates, filterCandidates } from "../api";
+import {
+  StarIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  AttachmentIcon,
+} from "@chakra-ui/icons";
+import { fetchCandidates, filterCandidates, getCandidate } from "../api";
 
-/**
- * Format date from "YYYY-MM-DD..." to "DD/MM/YY".
- */
+function generateMonthOptions() {
+  const options = [];
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+
+  // Generate options for the last 12 months
+  for (let i = 0; i < 12; i++) {
+    let month = currentMonth - i;
+    let year = currentYear;
+    
+    if (month < 0) {
+      month += 12;
+      year -= 1;
+    }
+
+    const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
+    const value = {
+      month: month + 1, // API expects 1-12
+      year: year
+    };
+    const label = `${monthName} ${year}`;
+    
+    options.push({ value, label });
+  }
+
+  return options;
+}
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  return `${String(date.getDate()).padStart(2, "0")}/${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}/${date.getFullYear().toString().substring(2)}`;
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
 const CandidateTable = () => {
@@ -41,16 +82,23 @@ const CandidateTable = () => {
   const [sortField, setSortField] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
 
-  // Tabs: 0 = All, 1 = Accepted, 2 = Rejected
+  // Tabs
   const [tabIndex, setTabIndex] = useState(0);
 
-  // Fetch all on initial load
+  // Month-year filter
+  const [monthYearFilter, setMonthYearFilter] = useState("");
+  const monthOptions = generateMonthOptions();
+
+  // Drawer state
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+
+  // Load candidates on mount
   useEffect(() => {
-    fetchAllCandidates();
+    loadData();
   }, []);
 
-  // Fetch all (unfiltered) candidates
-  const fetchAllCandidates = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
       const data = await fetchCandidates();
@@ -61,80 +109,122 @@ const CandidateTable = () => {
     setLoading(false);
   };
 
-  /**
-   * Handle switching tabs:
-   * - All => fetchAllCandidates()
-   * - Accepted => filterCandidates({ status: 'Selected' })
-   * - Rejected => filterCandidates({ status: 'Rejected' })
-   */
-  const handleTabsChange = async (index) => {
-    setTabIndex(index);
+  // Reusable filter function
+  const applyFilters = async (currentTab, currentMonthYear) => {
     setLoading(true);
-
     try {
-      if (index === 1) {
-        // Accepted
-        const filtered = await filterCandidates({ status: "Accepted" });
-        setCandidates(filtered);
-      } else if (index === 2) {
-        // Rejected
-        const filtered = await filterCandidates({ status: "Rejected" });
-        setCandidates(filtered);
-      } else {
-        // All
-        await fetchAllCandidates();
+      const filters = {
+        status: currentTab === 1 ? 'Accepted' : currentTab === 2 ? 'Rejected' : undefined
+      };
+
+      // Add month and year if present
+      if (currentMonthYear) {
+        filters.month = currentMonthYear.month;
+        filters.year = currentMonthYear.year;
       }
+      
+      const filteredData = await filterCandidates(filters);
+      setCandidates(filteredData);
     } catch (err) {
       console.error("Error filtering candidates:", err);
     }
-
     setLoading(false);
   };
 
-  /**
-   * When user clicks on a column header to sort.
-   * - If it's the same field, toggle direction
-   * - Else set new field and default to ascending
-   */
+  const handleTabsChange = async (index) => {
+    setTabIndex(index);
+    
+    // Build filters
+    let filters = {};
+    if (index === 1) {
+      filters.status = "Accepted";
+    } else if (index === 2) {
+      filters.status = "Rejected";
+    }
+
+    // Add month and year if present
+    if (monthYearFilter) {
+      const [year, month] = monthYearFilter.split('-').map(Number);
+      filters.month = month;
+      filters.year = year;
+    }
+
+    setLoading(true);
+    try {
+      const filtered = await filterCandidates(filters);
+      setCandidates(filtered);
+    } catch (err) {
+      console.error("Error filtering candidates:", err);
+    }
+    setLoading(false);
+  };
+
+  const handleMonthYearChange = async (e) => {
+    const value = e.target.value;
+    setMonthYearFilter(value);
+
+    // Build filters
+    let filters = {};
+    if (tabIndex === 1) {
+      filters.status = "Accepted";
+    } else if (tabIndex === 2) {
+      filters.status = "Rejected";
+    }
+
+    // Add month and year if a value was selected
+    if (value) {
+      const [year, month] = value.split('-').map(Number);
+      filters.month = month;
+      filters.year = year;
+    }
+
+    setLoading(true);
+    try {
+      const filtered = await filterCandidates(filters);
+      setCandidates(filtered);
+    } catch (err) {
+      console.error("Error filtering by month:", err);
+    }
+    setLoading(false);
+  };
+
+  // Sorting
   const handleSort = (field) => {
     if (sortField === field) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
       setSortDirection("asc");
     }
   };
 
-  /**
-   * Sort the candidate list based on sortField, sortDirection.
-   * We use useMemo so we only recalc if candidates or sort state changes.
-   */
   const sortedCandidates = useMemo(() => {
-    if (!sortField) return candidates;
+    if (!candidates || candidates.length === 0) {
+      return [];
+    }
 
-    const sorted = [...candidates].sort((a, b) => {
-      let comparison = 0;
-      if (sortField === "name") {
-        comparison = a.name.localeCompare(b.name);
-      } else if (sortField === "rating") {
-        comparison = a.rating - b.rating;
-      } else if (sortField === "stage") {
-        comparison = a.stage.localeCompare(b.stage);
-      } else if (sortField === "applied_role") {
-        comparison = a.applied_role.localeCompare(b.applied_role);
-      } else if (sortField === "application_date") {
-        comparison = new Date(a.application_date) - new Date(b.application_date);
-      }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
+    let sorted = [...candidates];
+    if (sortField) {
+      sorted.sort((a, b) => {
+        let comparison = 0;
+        
+        if (sortField === "name") {
+          comparison = a.name.localeCompare(b.name);
+        } else if (sortField === "rating") {
+          comparison = a.rating - b.rating;
+        } else if (sortField === "stage") {
+          comparison = a.stage.localeCompare(b.stage);
+        } else if (sortField === "application_date") {
+          comparison = new Date(a.application_date) - new Date(b.application_date);
+        }
+        
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+    
     return sorted;
   }, [candidates, sortField, sortDirection]);
 
-  /**
-   * Renders an arrow icon for each sortable column.
-   * - If active column, show the correct direction arrow at full opacity
-   * - If inactive, show an up arrow with lower opacity
-   */
   const SortIndicator = ({ field }) => {
     const isActive = sortField === field;
     const icon = isActive
@@ -155,7 +245,17 @@ const CandidateTable = () => {
     );
   };
 
-  // If loading, show a spinner
+  // Handle row click => open drawer
+  const handleCandidateClick = async (candidateId) => {
+    try {
+      const c = candidates.find((cand) => cand.id === candidateId);
+      setSelectedCandidate(c);
+      onOpen();
+    } catch (err) {
+      console.error("Error fetching single candidate:", err);
+    }
+  };
+
   if (loading) {
     return (
       <Center h="200px">
@@ -165,13 +265,39 @@ const CandidateTable = () => {
   }
 
   return (
-    <Box bg="#151515" p={6} borderRadius="md">
-      {/* Main heading */}
-      <Heading size="lg" color="white" mb={4}>
-        Candidates
-      </Heading>
+    <Box bg="#1E1E1E" p={{ base: 4, md: 6 }} borderRadius="md">
+      {/* Header row with "Candidates" heading and Month-Year filter */}
+      <Flex justify="space-between" align="center" mb={4}>
+        <Heading size="lg" color="white">
+          Candidates
+        </Heading>
+        <Select
+          placeholder="Select Month"
+          size="sm"
+          bg="#2A2A2A"
+          color="gray.400"
+          borderRadius="full"
+          border="none"
+          w="fit-content"
+          py={1}
+          _focus={{ outline: "none", boxShadow: "0 0 0 2px #6E38E0" }}
+          _hover={{ bg: "#333333", color: "white" }}
+          value={monthYearFilter}
+          onChange={handleMonthYearChange}
+        >
+          {monthOptions.map((opt) => (
+            <option
+              key={`${opt.value.year}-${opt.value.month}`}
+              value={`${opt.value.year}-${opt.value.month}`}
+              style={{ backgroundColor: "#1E1E1E", color: "#fff" }}
+            >
+              {opt.label}
+            </option>
+          ))}
+        </Select>
+      </Flex>
 
-      {/* Tabs */}
+      {/* Tabs for All, Accepted, Rejected */}
       <Tabs
         index={tabIndex}
         onChange={handleTabsChange}
@@ -180,192 +306,197 @@ const CandidateTable = () => {
         mb={4}
       >
         <TabList>
-          <Tab
-            color="white"
-            position="relative"
-            pb={2}
-            mr={4}
-            _selected={{
-              fontWeight: "semibold",
-            }}
-            // Add the gradient bar under the active tab only
-            _after={{
-              color:"white",
-              content: '""',
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              width: "100%",
-              height: "2px",
-              bgGradient: "linear(to-r, #6E38E0, #FF5F36)",
-              // Only show when active
-              opacity: tabIndex === 0 ? 1 : 0,
-              transition: "opacity 0.2s",
-            }}
-          >
-            All
-          </Tab>
-          <Tab
-            color="white"
-            position="relative"
-            pb={2}
-            mr={4}
-            _selected={{
-              fontWeight: "semibold",
-            }}
-            _after={{
-              color:"white",
-              content: '""',
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              width: "100%",
-              height: "2px",
-              bgGradient: "linear(to-r, #6E38E0, #FF5F36)",
-              opacity: tabIndex === 1 ? 1 : 0,
-              transition: "opacity 0.2s",
-            }}
-          >
-            Accepted
-          </Tab>
-          <Tab
-            color="white"
-            position="relative"
-            pb={2}
-            _selected={{
-              fontWeight: "semibold",
-            }}
-            _after={{
-              color:"white",
-              content: '""',
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              width: "100%",
-              height: "2px",
-              bgGradient: "linear(to-r, #6E38E0, #FF5F36)",
-              opacity: tabIndex === 2 ? 1 : 0,
-              transition: "opacity 0.2s",
-            }}
-          >
-            Rejected
-          </Tab>
+          {["All", "Accepted", "Rejected"].map((label, idx) => (
+            <Tab
+              key={label}
+              color="white"
+              position="relative"
+              pb={2}
+              mr={4}
+              _selected={{ fontWeight: "semibold" }}
+              _after={{
+                content: '""',
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                height: "2px",
+                bgGradient: "linear(to-r, #6E38E0, #FF5F36)",
+                opacity: tabIndex === idx ? 1 : 0,
+                transition: "opacity 0.2s",
+              }}
+            >
+              {label}
+            </Tab>
+          ))}
         </TabList>
-
-        <TabPanels>
-          <TabPanel p={0} />
-          <TabPanel p={0} />
-          <TabPanel p={0} />
-        </TabPanels>
       </Tabs>
 
-      {/* Table container with a minHeight to prevent layout shifting */}
-      <Box
-        overflowX="auto"
-        borderRadius="md"
-        minH="400px" // Adjust as needed
-        border="1px solid #333"
-        bg="#1E1E1E"
-      >
-        <Table variant="simple" size="md">
+      {/* Table container */}
+      <Box overflowX="auto" borderRadius="lg" minH="400px">
+        <Table variant="unstyled" size="md">
           <Thead>
-            <Tr bg="#242424">
+            <Tr bg="#262626" borderTopRadius="lg">
               <Th
-                color="white"
+                color="#898989"
                 fontSize="xs"
-                cursor="pointer"
-                onClick={() => handleSort("name")}
+                py={3}
+                borderTopLeftRadius="lg"
+                textTransform="none"
+                textAlign="center"
               >
-                <Flex align="center">
-                  Candidate Name
-                  <SortIndicator field="name" />
-                </Flex>
+                Candidate Name
               </Th>
               <Th
-                color="white"
+                color="#898989"
                 fontSize="xs"
+                py={3}
+                textTransform="none"
                 cursor="pointer"
                 onClick={() => handleSort("rating")}
+                textAlign="center"
               >
-                <Flex align="center">
+                <Flex align="center" justify="center">
                   Rating
                   <SortIndicator field="rating" />
                 </Flex>
               </Th>
               <Th
-                color="white"
+                color="#898989"
                 fontSize="xs"
+                py={3}
+                textTransform="none"
                 cursor="pointer"
                 onClick={() => handleSort("stage")}
+                textAlign="center"
               >
-                <Flex align="center">
+                <Flex align="center" justify="center">
                   Stages
                   <SortIndicator field="stage" />
                 </Flex>
               </Th>
               <Th
-                color="white"
+                color="#898989"
                 fontSize="xs"
-                cursor="pointer"
-                onClick={() => handleSort("applied_role")}
+                py={3}
+                textTransform="none"
+                textAlign="center"
               >
-                <Flex align="center">
-                  Applied Role
-                  <SortIndicator field="applied_role" />
-                </Flex>
+                Applied Role
               </Th>
               <Th
-                color="white"
+                color="#898989"
                 fontSize="xs"
+                py={3}
+                textTransform="none"
                 cursor="pointer"
                 onClick={() => handleSort("application_date")}
+                textAlign="center"
               >
-                <Flex align="center">
+                <Flex align="center" justify="center">
                   Application Date
                   <SortIndicator field="application_date" />
                 </Flex>
               </Th>
-              {/* Attachments not sortable */}
-              <Th color="white" fontSize="xs">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                textTransform="none"
+                textAlign="center"
+                borderBottomRightRadius="lg"
+              >
                 Attachments
               </Th>
             </Tr>
           </Thead>
-
           <Tbody>
-            {sortedCandidates.map((candidate) => (
-              <Tr key={candidate.id} _hover={{ bg: "#2A2A2A" }}>
-                <Td>
-                <Flex align="center" gap={3}>
+            {sortedCandidates.map((candidate, index) => (
+              <Tr
+                key={candidate.id}
+                _hover={{ bg: "#2A2A2A", cursor: "pointer" }}
+                position="relative"
+                px={4}
+                onClick={() => handleCandidateClick(candidate.id)}
+                _after={{
+                  content: '""',
+                  position: "absolute",
+                  left: "1rem",
+                  right: "1rem",
+                  bottom: 0,
+                  height: "1px",
+                  backgroundColor: "#333",
+                  display:
+                    index !== sortedCandidates.length - 1 ? "block" : "none",
+                }}
+              >
+                <Td pt={3} pb={3} textAlign="center">
+                  <Flex align="center" gap={3} justify="center">
                     <Avatar size="sm" name={candidate.name} />
                     <Text color="white">{candidate.name}</Text>
                   </Flex>
                 </Td>
-                <Td>
-                  <Flex align="center" gap={1}>
+                <Td pt={3} pb={3} textAlign="center">
+                  <Flex align="center" gap={1} justify="center">
                     <Icon as={StarIcon} color="yellow.400" boxSize={4} />
                     <Text color="white">{candidate.rating.toFixed(1)}</Text>
                   </Flex>
                 </Td>
-                <Td>
+                <Td pt={3} pb={3} textAlign="center">
                   <Text color="white">{candidate.stage}</Text>
                 </Td>
-                <Td>
+                <Td pt={3} pb={3} textAlign="center">
                   <Text color="white">{candidate.applied_role}</Text>
                 </Td>
-                <Td>
-                  <Text color="white">
-                    {formatDate(candidate.application_date)}
-                  </Text>
+                <Td pt={3} pb={3} textAlign="center">
+                  <Text color="white">{formatDate(candidate.application_date)}</Text>
                 </Td>
-                <Td>
-                  <Text color="white">{candidate.attachments} files</Text>
+                <Td pt={3} pb={3} textAlign="center">
+                  <Flex align="center" justify="center">
+                    <AttachmentIcon mr={1} color="gray.400" />
+                    <Text color="white">{candidate.attachments} files</Text>
+                  </Flex>
                 </Td>
               </Tr>
             ))}
           </Tbody>
         </Table>
       </Box>
+
+      {/* Candidate Detail Drawer */}
+      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="md">
+        <DrawerOverlay />
+        <DrawerContent bg="#1E1E1E">
+          <DrawerCloseButton color="white" />
+          <DrawerHeader color="white">
+            {selectedCandidate ? selectedCandidate.name : "Candidate Details"}
+          </DrawerHeader>
+          <DrawerBody>
+            {selectedCandidate ? (
+              <Box color="white">
+                {/* Example Fields */}
+                <Text>Email: {selectedCandidate.email}</Text>
+                <Text>Phone: {selectedCandidate.phone}</Text>
+                <Text>Stage: {selectedCandidate.stage}</Text>
+                <Text>Status: {selectedCandidate.status}</Text>
+                <Text>Role: {selectedCandidate.applied_role}</Text>
+                <Text>Rating: {selectedCandidate.rating}</Text>
+                {/* You can add more fields, 
+                    such as experience, location, attachments, etc. */}
+                <Flex mt={4} gap={3}>
+                  <Button colorScheme="green">Move to Next Step</Button>
+                  <Button colorScheme="red">Reject</Button>
+                  <Button colorScheme="purple">PDF</Button>
+                </Flex>
+              </Box>
+            ) : (
+              <Center h="full">
+                <Spinner size="lg" />
+              </Center>
+            )}
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </Box>
   );
 };

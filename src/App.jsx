@@ -16,12 +16,43 @@ import {
   DrawerBody,
   DrawerContent,
   DrawerOverlay,
+  Select,
 } from "@chakra-ui/react";
-import { SearchIcon, SettingsIcon, BellIcon, HamburgerIcon } from "@chakra-ui/icons";
+import {
+  SearchIcon,
+  SettingsIcon,
+  BellIcon,
+  HamburgerIcon,
+  ChevronDownIcon,
+} from "@chakra-ui/icons";
 import { fetchCandidates } from "./api";
 import Sidebar from "./components/sidebar";
 import CandidateTable from "./components/candidateTable";
 import Carousel from "./components/Carousel";
+
+/** 
+ * Generate an array of month-year options for the last 2 years, 
+ * plus the current year up to the current month.
+ */
+function generateMonthOptions() {
+  const options = [];
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const startYear = currentYear - 2;
+
+  for (let year = currentYear; year >= startYear; year--) {
+    const endMonth = year === currentYear ? currentDate.getMonth() : 11;
+    for (let month = endMonth; month >= 0; month--) {
+      const date = new Date(year, month, 1);
+      const monthName = date.toLocaleString("default", { month: "long" });
+      options.push({
+        value: `${year}-${String(month + 1).padStart(2, "0")}`,
+        label: `${monthName} ${year}`,
+      });
+    }
+  }
+  return options;
+}
 
 function App() {
   const [candidates, setCandidates] = useState([]);
@@ -34,6 +65,10 @@ function App() {
   const pageBg = "#151515";
   const headerBg = "#151515";
   const borderColor = "#333333";
+
+  // Month-year filter state
+  const [monthYearFilter, setMonthYearFilter] = useState("");
+  const monthOptions = generateMonthOptions();
 
   useEffect(() => {
     const loadData = async () => {
@@ -51,24 +86,30 @@ function App() {
     loadData();
   }, []);
 
+  const handleMonthYearChange = (e) => {
+    const newValue = e.target.value;
+    setMonthYearFilter(newValue);
+    // Implement filtering logic if needed
+  };
+
   return (
     <Box className="min-h-screen h-screen text-white font-urbanist" bg={pageBg}>
       <Flex direction="column" h="100%">
         {/* Header */}
-        <Flex 
-          borderBottom="1px" 
+        <Flex
+          borderBottom="1px"
           borderColor={borderColor}
-          h="16" 
+          h="16"
           className="border-gray-700"
           bg={headerBg}
         >
-          <Flex 
+          <Flex
             display={{ base: "none", md: "flex" }}
-            w="64" 
-            borderRight="1px" 
+            w="64"
+            borderRight="1px"
             borderColor={borderColor}
-            align="center" 
-            px="6" 
+            align="center"
+            px="6"
             className="border-gray-700"
           >
             <Heading size="lg" className="text-white flex items-center font-urbanist">
@@ -76,7 +117,13 @@ function App() {
               RSKD Talent
             </Heading>
           </Flex>
-          <Flex flex="1" justify="space-between" align="center" px="6" bg={headerBg}>
+          <Flex
+            flex="1"
+            justify="space-between"
+            align="center"
+            px="6"
+            bg={headerBg}
+          >
             {/* Mobile Menu Button */}
             <Show below="md">
               <IconButton
@@ -91,7 +138,7 @@ function App() {
                 RSKD Talent
               </Heading>
             </Show>
-            
+
             {/* Search */}
             <InputGroup maxW="340px" display={{ base: "none", lg: "block" }}>
               <InputLeftElement pointerEvents="none">
@@ -106,7 +153,7 @@ function App() {
                 className="focus:ring-1 focus:ring-purple"
               />
             </InputGroup>
-            
+
             {/* Actions */}
             <Flex align="center" gap={{ base: "3", md: "6" }}>
               <IconButton
@@ -159,14 +206,9 @@ function App() {
           <Hide below="md">
             <Sidebar />
           </Hide>
-          
+
           {/* Mobile Sidebar */}
-          <Drawer
-            isOpen={isOpen}
-            placement="left"
-            onClose={onClose}
-            size="xs"
-          >
+          <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
             <DrawerOverlay />
             <DrawerContent bg={pageBg}>
               <DrawerBody p={0}>
@@ -174,21 +216,21 @@ function App() {
               </DrawerBody>
             </DrawerContent>
           </Drawer>
-          
+
           {/* Main Content Area */}
-          <Box 
-            flex="1" 
-            p={{ base: "4", md: "6" }} 
-            overflowY="auto" 
+          <Box
+            flex="1"
+            p={{ base: "4", md: "6" }}
+            overflowY="auto"
             className="responsive-content"
             bg={pageBg}
           >
             {loading ? (
               <Flex justify="center" align="center" h="full">
-                <Spinner 
-                  size="xl" 
-                  color="#6E38E0" 
-                  thickness="4px" 
+                <Spinner
+                  size="xl"
+                  color="#6E38E0"
+                  thickness="4px"
                   speed="0.65s"
                   emptyColor="gray.700"
                 />
@@ -196,18 +238,19 @@ function App() {
             ) : (
               <>
                 <Carousel />
-                <CandidateTable 
-                  candidates={candidates} 
-                  onSelect={setSelectedCandidate} 
+                <br />
+                <CandidateTable
+                  candidates={candidates}
+                  onSelect={setSelectedCandidate}
                 />
               </>
             )}
           </Box>
         </Flex>
-        
+
         {/* Mobile Navigation */}
         <Show below="md">
-          <Flex 
+          <Flex
             as="nav"
             position="fixed"
             bottom="0"

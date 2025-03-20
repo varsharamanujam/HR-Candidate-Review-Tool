@@ -1,18 +1,11 @@
 [
     {
-        "name": "John Doe",
+        "name": "Jayanth",
         "email": "john@example.com",
-        "phone": "123-456-7890",
+        "phone": "123456789",
         "applied_role": "Software Engineer",
-        "experience": "5 years",
+        "experience": "14 years",
         "status": "Pending",
         "resume_url": "https://example.com/resume/john.pdf"
-    },
-    {
-        "name": "Jane Smith",
-        "email": "jane@example.com",
-        "phone": "987-654-3210",
-        "applied_role": "UX Designer",
-        "experience": "3 years"
     }
 ]
