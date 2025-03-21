@@ -15,14 +15,23 @@ Example:
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import SessionLocal, Candidate, init_db
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Union
+from datetime import datetime, timedelta
 import json
 import io
 import weasyprint
-from datetime import datetime, timedelta
-from sqlalchemy import func
+
+# Constants
+STAGES = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired", "Rejected"]
+STATUSES = ["Pending", "In Process", "Selected", "Rejected"]
+SORT_FIELDS = ["name", "application_date", "rating"]
+DEFAULT_SORT = "name"
+DEFAULT_STATUS = "Pending"
+DEFAULT_STAGE = "Screening"
+DEFAULT_RATING = 0.0
 
 app = FastAPI()
 
@@ -142,15 +151,42 @@ def get_candidates(db: Session = Depends(get_db)):
 @app.get("/candidates/filter/")
 def filter_candidates(
     db: Session = Depends(get_db),
-    role: str = None,
-    status: str = None,
-    stage: str = None,
-    search: str = None,
-    sort_by: str = "name",
-    month_year: str = None,
-):
+    role: Optional[str] = None,
+    status: Optional[str] = None,
+    stage: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = DEFAULT_SORT,
+    month_year: Optional[str] = None,
+) -> List[CandidateResponse]:
+    """
+    Filter and sort candidates based on various criteria.
+
+    Args:
+        db (Session): Database session
+        role (Optional[str]): Filter by applied role
+        status (Optional[str]): Filter by status (must be in STATUSES)
+        stage (Optional[str]): Filter by stage (must be in STAGES)
+        search (Optional[str]): Search in name, email, and role
+        sort_by (str): Field to sort by (must be in SORT_FIELDS)
+        month_year (Optional[str]): Filter by month and year (format: YYYY-MM)
+
+    Returns:
+        List[CandidateResponse]: List of filtered candidates
+
+    Raises:
+        HTTPException: If invalid status, stage, or sort field is provided
+    """
+    # Validate inputs
+    if status and status not in STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {STATUSES}")
+    if stage and stage not in STAGES:
+        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {STAGES}")
+    if sort_by not in SORT_FIELDS:
+        raise HTTPException(status_code=400, detail=f"Invalid sort field. Must be one of: {SORT_FIELDS}")
+
     query = db.query(Candidate)
     
+    # Apply filters
     if role:
         query = query.filter(Candidate.applied_role == role)
     if status:
@@ -158,34 +194,44 @@ def filter_candidates(
     if stage:
         query = query.filter(Candidate.stage == stage)
     if search:
+        search_term = f"%{search}%"
         query = query.filter(
-            Candidate.name.contains(search) | 
-            Candidate.email.contains(search) |
-            Candidate.applied_role.contains(search)
+            Candidate.name.ilike(search_term) |
+            Candidate.email.ilike(search_term) |
+            Candidate.applied_role.ilike(search_term)
         )
     
     # Handle month_year filter
     if month_year:
         try:
             year, month = map(int, month_year.split("-"))
-            # Create a datetime range for the month
+            if not (1 <= month <= 12 and 1900 <= year <= 9999):
+                raise ValueError("Invalid month or year")
+                
             start_date = datetime(year, month, 1)
             if month == 12:
                 end_date = datetime(year + 1, 1, 1)
             else:
                 end_date = datetime(year, month + 1, 1)
-            query = query.filter(Candidate.application_date >= start_date,
-                                 Candidate.application_date < end_date)
-        except Exception as e:
-            print("Error processing month_year:", e)
+                
+            query = query.filter(
+                Candidate.application_date >= start_date,
+                Candidate.application_date < end_date
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid month_year format. Must be YYYY-MM: {str(e)}"
+            )
     
-    # Sorting logic
-    if sort_by == "name":
-        query = query.order_by(Candidate.name)
-    elif sort_by == "application_date":
-        query = query.order_by(Candidate.application_date.desc())
-    elif sort_by == "rating":
-        query = query.order_by(Candidate.rating.desc())
+    # Apply sorting
+    query = query.order_by(
+        {
+            "name": Candidate.name,
+            "application_date": Candidate.application_date.desc(),
+            "rating": Candidate.rating.desc()
+        }[sort_by]
+    )
     
     return query.all()
 
@@ -274,7 +320,7 @@ def update_status(candidate_id: int, update: CandidateUpdate, db: Session = Depe
     return candidate
 
 @app.get("/candidates/{candidate_id}/pdf/")
-def generate_pdf(candidate_id: int, db: Session = Depends(get_db)):
+def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
     """
     Generate a PDF document with candidate details.
 
@@ -286,57 +332,182 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)):
         Response: PDF file as a downloadable attachment
 
     Raises:
-        HTTPException: If candidate is not found
-
-    Example:
-        response = await client.get("/candidates/1/pdf/")
-        # Response will be a downloadable PDF file
+        HTTPException: If candidate is not found or PDF generation fails
     """
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
-        raise HTTPException(status_code=404, detail="Candidate not found")
+    try:
+        candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Candidate not found")
 
-    # Parse URLs from JSON string
-    urls = json.loads(candidate.urls) if candidate.urls else {}
-    
-    # Create URL section HTML
-    url_section = ""
-    if urls:
-        url_section = "<h2>Attachments</h2>"
-        if "resume" in urls:
-            url_section += f'<p><strong>Resume:</strong> <a href="{urls["resume"]}">{urls["resume"]}</a></p>'
-        if "cover_letter" in urls:
-            url_section += f'<p><strong>Cover Letter:</strong> <a href="{urls["cover_letter"]}">{urls["cover_letter"]}</a></p>'
-        if "project" in urls:
-            url_section += f'<p><strong>Project:</strong> <a href="{urls["project"]}">{urls["project"]}</a></p>'
-    
-    # Create PDF content
-    html_content = f"""
-    <html>
-        <body>
-            <h1>Candidate Details</h1>
-            <p><strong>Name:</strong> {candidate.name}</p>
-            <p><strong>Email:</strong> {candidate.email}</p>
-            <p><strong>Phone:</strong> {candidate.phone}</p>
-            <p><strong>Applied Role:</strong> {candidate.applied_role}</p>
-            <p><strong>Experience:</strong> {candidate.experience}</p>
-            <p><strong>Status:</strong> {candidate.status}</p>
-            <p><strong>Current Stage:</strong> {candidate.stage}</p>
-            <p><strong>Rating:</strong> {candidate.rating} / 5.0</p>
-            <p><strong>Location:</strong> {candidate.location or "Not specified"}</p>
-            <p><strong>Application Date:</strong> {candidate.application_date.strftime('%Y-%m-%d')}</p>
-            {url_section}
-        </body>
-    </html>
-    """
-    
-    pdf = weasyprint.HTML(string=html_content).write_pdf()
-    
-    return Response(
-        content=pdf, 
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=candidate_{candidate_id}.pdf"}
-    )
+        # Parse URLs from JSON string with error handling
+        try:
+            urls = json.loads(candidate.urls) if candidate.urls else {}
+        except json.JSONDecodeError:
+            urls = {}
+            print(f"Warning: Invalid JSON in URLs for candidate {candidate_id}")
+
+        # CSS styles for better PDF formatting
+        css_styles = """
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }
+                h1 {
+                    color: #6E38E0;
+                    border-bottom: 2px solid #6E38E0;
+                    padding-bottom: 10px;
+                    margin-bottom: 30px;
+                }
+                h2 {
+                    color: #555;
+                    margin-top: 25px;
+                }
+                .info-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }
+                .info-item {
+                    padding: 10px;
+                    background: #f8f8f8;
+                    border-radius: 5px;
+                }
+                .label {
+                    font-weight: bold;
+                    color: #666;
+                    margin-bottom: 5px;
+                }
+                .value {
+                    color: #333;
+                }
+                .status {
+                    display: inline-block;
+                    padding: 5px 10px;
+                    border-radius: 15px;
+                    background: #6E38E0;
+                    color: white;
+                }
+                .attachments {
+                    margin-top: 30px;
+                    padding: 20px;
+                    background: #f8f8f8;
+                    border-radius: 5px;
+                }
+                a {
+                    color: #6E38E0;
+                    text-decoration: none;
+                }
+            </style>
+        """
+
+        # Create URL section HTML with better structure
+        url_section = ""
+        if urls:
+            url_items = []
+            for url_type, url in urls.items():
+                safe_url = url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                url_items.append(f"""
+                    <div class="info-item">
+                        <div class="label">{url_type.title()}</div>
+                        <div class="value"><a href="{safe_url}">{safe_url}</a></div>
+                    </div>
+                """)
+            if url_items:
+                url_section = f"""
+                    <div class="attachments">
+                        <h2>Attachments</h2>
+                        <div class="info-grid">
+                            {"".join(url_items)}
+                        </div>
+                    </div>
+                """
+
+        # Create PDF content with improved layout
+        html_content = f"""
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                {css_styles}
+            </head>
+            <body>
+                <h1>Candidate Details</h1>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="label">Name</div>
+                        <div class="value">{candidate.name}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Email</div>
+                        <div class="value">{candidate.email}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Phone</div>
+                        <div class="value">{candidate.phone}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Applied Role</div>
+                        <div class="value">{candidate.applied_role}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Experience</div>
+                        <div class="value">{candidate.experience}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Status</div>
+                        <div class="value"><span class="status">{candidate.status}</span></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Current Stage</div>
+                        <div class="value">{candidate.stage}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Rating</div>
+                        <div class="value">{candidate.rating} / 5.0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Location</div>
+                        <div class="value">{candidate.location or "Not specified"}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Application Date</div>
+                        <div class="value">{candidate.application_date.strftime('%B %d, %Y')}</div>
+                    </div>
+                </div>
+                {url_section}
+            </body>
+        </html>
+        """
+
+        try:
+            pdf = weasyprint.HTML(string=html_content).write_pdf()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error generating PDF: {str(e)}"
+            )
+
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{candidate.name.replace(" ", "_")}_{candidate_id}.pdf"',
+                "Content-Type": "application/pdf"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
 
 @app.get("/candidates/{candidate_id}/")
 def get_candidate(candidate_id: int, db: Session = Depends(get_db)):

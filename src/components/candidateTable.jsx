@@ -1,3 +1,19 @@
+/**
+ * @fileoverview CandidateTable Component
+ *
+ * A comprehensive table component for displaying and managing candidate information.
+ * Features include:
+ * - Sortable columns for candidate data
+ * - Filtering by status and date
+ * - Detailed candidate profile view in a drawer
+ * - Application stage tracking
+ * - PDF generation for candidate details
+ *
+ * @requires React
+ * @requires @chakra-ui/react
+ * @requires @chakra-ui/icons
+ */
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
@@ -41,15 +57,34 @@ import {
   CheckIcon,
   TimeIcon,
 } from "@chakra-ui/icons";
-import { fetchCandidates, filterCandidates, getCandidate, generateCandidatePDF } from "../api";
+import {
+  fetchCandidates,
+  filterCandidates,
+  getCandidate,
+  generateCandidatePDF
+} from "../api";
 
-function generateMonthOptions() {
+// Constants
+const APPLICATION_STAGES = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"];
+const SORT_FIELDS = {
+  NAME: "name",
+  RATING: "rating",
+  STAGE: "stage",
+  APPLICATION_DATE: "application_date"
+};
+
+// Utility Functions
+
+/**
+ * Generates an array of month-year options for the last 12 months
+ * @returns {Array<{value: {month: number, year: number}, label: string}>} Array of month options
+ */
+const generateMonthOptions = () => {
   const options = [];
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
 
-  // Generate options for the last 12 months
   for (let i = 0; i < 12; i++) {
     let month = currentMonth - i;
     let year = currentYear;
@@ -62,7 +97,7 @@ function generateMonthOptions() {
     const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
     const value = {
       month: month + 1, // API expects 1-12
-      year: year
+      year
     };
     const label = `${monthName} ${year}`;
     
@@ -70,7 +105,13 @@ function generateMonthOptions() {
   }
 
   return options;
-}
+};
+
+/**
+ * Formats a date string into a readable format
+ * @param {string} dateString - The date string to format
+ * @returns {string} Formatted date string (e.g., "Mar 21, 2025")
+ */
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
@@ -79,6 +120,17 @@ const formatDate = (dateString) => {
     day: 'numeric'
   });
 };
+
+/**
+ * CandidateTable Component
+ * Displays a table of candidates with sorting, filtering, and detailed view capabilities.
+ *
+ * @component
+ * @example
+ * return (
+ *   <CandidateTable />
+ * )
+ */
 
 const CandidateTable = () => {
   const [candidates, setCandidates] = useState([]);
@@ -349,6 +401,7 @@ const CandidateTable = () => {
                 fontSize="xs"
                 py={3}
                 borderTopLeftRadius="lg"
+                borderBottomLeftRadius="lg"
                 textTransform="none"
                 textAlign="center"
               >
@@ -471,7 +524,7 @@ const CandidateTable = () => {
       </Box>
 
       {/* Candidate Detail Drawer */}
-      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="md">
+      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size = "sm">
         <DrawerOverlay />
         <DrawerContent bg="#151515">
           <DrawerCloseButton color="white" />
@@ -539,11 +592,11 @@ const CandidateTable = () => {
                   maxW="md"
                   bg="#1A1A1A"
                   borderRadius="lg"
-                  p={6}
-                  mt={8}
-                  mb={8}
+                  p={2}
+                  mt={2}
+                  mb={2}
                 >
-                  <Text fontSize="xl" fontWeight="semibold" mb={6}>
+                  <Text fontSize="xl" fontWeight="semibold" mb={4}>
                     Application Details
                   </Text>
                   <VStack spacing={0} align="stretch" position="relative">
@@ -653,15 +706,14 @@ const CandidateTable = () => {
                 </Box>
                 </Box>
 
-                {/* Action Buttons */}
                 <Flex gap={3}>
                   <Button
                     flex="1"
                     bgGradient="linear(to-r, #6E38E0, #FF5F36)"
                     color="white"
                     _hover={{ opacity: 0.9 }}
-                    rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
                     borderRadius="none"
+                    rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
                   >
                     Move to Next Step
                   </Button>
