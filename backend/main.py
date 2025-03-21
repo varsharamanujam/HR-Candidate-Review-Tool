@@ -28,7 +28,7 @@ import weasyprint
 STAGES = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired", "Rejected"]
 STATUSES = ["Pending", "In Process", "Selected", "Rejected"]
 SORT_FIELDS = ["name", "application_date", "rating"]
-DEFAULT_SORT = "name"
+DEFAULT_SORT = "application_date"
 DEFAULT_STATUS = "Pending"
 DEFAULT_STAGE = "Screening"
 DEFAULT_RATING = 0.0
@@ -509,7 +509,33 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
             detail=f"Error processing request: {str(e)}"
         )
 
+@app.get("/candidates/search/", response_model=List[CandidateResponse])
+def search_candidates(query: str, db: Session = Depends(get_db)):
+    """
+    Search for candidates using a keyword across multiple candidate fields.
+    
+    Args:
+        query (str): The search keyword.
+        db (Session): Database session dependency.
+
+    Returns:
+        List[CandidateResponse]: List of matching candidates.
+    """
+    search_term = f"%{query}%"
+    candidates = db.query(Candidate).filter(
+        Candidate.name.ilike(search_term) |
+        Candidate.email.ilike(search_term) |
+        Candidate.applied_role.ilike(search_term) |
+        Candidate.experience.ilike(search_term) |
+        Candidate.phone.ilike(search_term) |
+        Candidate.stage.ilike(search_term) |
+        Candidate.status.ilike(search_term) |
+        Candidate.location.ilike(search_term)
+    ).all()
+    return candidates
+
 @app.get("/candidates/{candidate_id}/")
+
 def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
     """
     Retrieve a specific candidate by ID.
@@ -532,6 +558,7 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     return candidate
+
 
 @app.post("/seed/")
 def seed_data(db: Session = Depends(get_db)):

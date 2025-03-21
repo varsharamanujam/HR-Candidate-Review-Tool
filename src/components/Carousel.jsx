@@ -13,7 +13,7 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { FiMapPin, FiClock, FiArrowUpRight } from "react-icons/fi";
 
-// Mock data to match the screenshot
+// Mock data to match the figma design
 const dummyOpenings = [
   { 
     id: 1, 
