@@ -4,17 +4,17 @@
  * A comprehensive table component for displaying and managing candidate information.
  * Features include:
  * - Sortable columns for candidate data
- * - Filtering by status and date
+ * - Filtering by status (via tabs) and by month-year
  * - Detailed candidate profile view in a drawer
- * - Application stage tracking
  * - PDF generation for candidate details
+ * - Optional SVG photo display (if available)
  *
  * @requires React
  * @requires @chakra-ui/react
  * @requires @chakra-ui/icons
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Table,
@@ -41,8 +41,8 @@ import {
   useDisclosure,
   Button,
   VStack,
-  Circle,
-  Heading,
+  Select,
+  Heading
 } from "@chakra-ui/react";
 import {
   StarIcon,
@@ -51,70 +51,141 @@ import {
   AttachmentIcon,
   EmailIcon,
   PhoneIcon,
-  CheckIcon,
+  CheckIcon
 } from "@chakra-ui/icons";
+import { fetchCandidates, filterCandidates, getCandidate, generateCandidatePDF } from "../api";
 
-// Utility Functions
+// Utility: Generate options for the last 12 months
+function generateMonthOptions() {
+  const options = [];
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
 
-/**
- * Formats a date string into a readable format
- * @param {string} dateString - The date string to format
- * @returns {string} Formatted date string (e.g., "Mar 21, 2025")
- */
+  for (let i = 0; i < 12; i++) {
+    let month = currentMonth - i;
+    let year = currentYear;
+    if (month < 0) {
+      month += 12;
+      year -= 1;
+    }
+    const monthName = new Date(year, month).toLocaleString("default", { month: "long" });
+    options.push({ value: `${year}-${String(month + 1).padStart(2, "0")}`, label: `${monthName} ${year}` });
+  }
+  return options;
+}
+
+const monthOptions = generateMonthOptions();
+
+// Utility: Format a date string
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
-    day: "numeric",
+    day: "numeric"
   });
 };
 
-/**
- * CandidateTable Component
- * Displays a table of candidates with sorting, filtering, and detailed view capabilities.
- *
- * @component
- * @param {Array} candidates - Array of candidate objects to display.
- * @param {Function} onSelect - Function to call when a candidate row is clicked.
- * @example
- * return (
- *   <CandidateTable candidates={candidates} onSelect={setSelectedCandidate} />
- * )
- */
-const CandidateTable = ({ candidates, onSelect }) => {
-  // Expect candidates to be passed from parent.
-  // If candidates is undefined or empty, you could display a loading state.
-
-  // Sorting state (default sort: application_date, descending)
+const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
+  // Use candidates passed as props; if none, load later in useEffect.
+  const [candidates, setCandidates] = useState(initialCandidates || []);
+  const [loading, setLoading] = useState(!initialCandidates);
+  // Sorting state (default sort: application_date descending)
   const [sortField, setSortField] = useState("application_date");
   const [sortDirection, setSortDirection] = useState("desc");
-
-  // Tabs state (if you need filtering by status, etc.)
+  // Tabs state: 0 = All, 1 = Accepted, 2 = Rejected
   const [tabIndex, setTabIndex] = useState(0);
-
+  // Month-year filter state
+  const [monthYearFilter, setMonthYearFilter] = useState("");
   // Drawer state for candidate details
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  // PDF loading state
+  const [pdfLoading, setPdfLoading] = useState(false);
 
-  // Sorting function: sort candidates based on the current sortField and sortDirection.
+  // Load candidates if not provided via props
+  useEffect(() => {
+    if (!initialCandidates) {
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          const data = await fetchCandidates();
+          setCandidates(data);
+        } catch (err) {
+          console.error("Error fetching candidates:", err);
+        }
+        setLoading(false);
+      };
+      loadData();
+    }
+  }, [initialCandidates]);
+
+  // Handler for month-year filter
+  const handleMonthYearChange = async (e) => {
+    const value = e.target.value;
+    setMonthYearFilter(value);
+    // Build filters: include the month_year key as expected by the API.
+    let filters = {};
+    if (tabIndex === 1) {
+      filters.status = "Accepted";
+    } else if (tabIndex === 2) {
+      filters.status = "Rejected";
+    }
+    if (value) {
+      filters.month_year = value;
+    }
+    setLoading(true);
+    try {
+      const filtered = await filterCandidates(filters);
+      setCandidates(filtered);
+    } catch (err) {
+      console.error("Error filtering candidates by month:", err);
+    }
+    setLoading(false);
+  };
+
+  // Handler for tab change (status filter)
+  const handleTabsChange = async (index) => {
+    setTabIndex(index);
+    let filters = {};
+    if (index === 1) {
+      filters.status = "Accepted";
+    } else if (index === 2) {
+      filters.status = "Rejected";
+    }
+    if (monthYearFilter) {
+      filters.month_year = monthYearFilter;
+    }
+    setLoading(true);
+    try {
+      const filtered = await filterCandidates(filters);
+      setCandidates(filtered);
+    } catch (err) {
+      console.error("Error filtering candidates:", err);
+    }
+    setLoading(false);
+  };
+
+  // Sorting: sort candidates based on sortField and sortDirection.
   const sortedCandidates = useMemo(() => {
     if (!candidates || candidates.length === 0) return [];
     let sorted = [...candidates];
-    sorted.sort((a, b) => {
-      let comparison = 0;
-      if (sortField === "name") {
-        comparison = a.name.localeCompare(b.name);
-      } else if (sortField === "rating") {
-        comparison = a.rating - b.rating;
-      } else if (sortField === "stage") {
-        comparison = a.stage.localeCompare(b.stage);
-      } else if (sortField === "application_date") {
-        comparison =
-          new Date(a.application_date) - new Date(b.application_date);
-      }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
+    if (sortField) {
+      sorted.sort((a, b) => {
+        let comparison = 0;
+        if (sortField === "name") {
+          comparison = a.name.localeCompare(b.name);
+        } else if (sortField === "rating") {
+          comparison = a.rating - b.rating;
+        } else if (sortField === "stage") {
+          comparison = a.stage.localeCompare(b.stage);
+        } else if (sortField === "application_date") {
+          comparison = new Date(a.application_date) - new Date(b.application_date);
+        }
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
     return sorted;
   }, [candidates, sortField, sortDirection]);
 
@@ -123,24 +194,15 @@ const CandidateTable = ({ candidates, onSelect }) => {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortField(field);
-      // When changing sort field, default to ascending
       setSortDirection("asc");
     }
   };
 
   const SortIndicator = ({ field }) => {
     const isActive = sortField === field;
-    const icon =
-      isActive && sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon;
+    const icon = isActive && sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon;
     return (
-      <Icon
-        as={icon}
-        w={3}
-        h={3}
-        ml={1}
-        color="purple.400"
-        opacity={isActive ? 1 : 0.3}
-      />
+      <Icon as={icon} w={3} h={3} ml={1} color="purple.400" opacity={isActive ? 1 : 0.3} />
     );
   };
 
@@ -150,11 +212,31 @@ const CandidateTable = ({ candidates, onSelect }) => {
     if (candidate) {
       setSelectedCandidate(candidate);
       onOpen();
+      if (onSelect) onSelect(candidate);
     }
   };
 
-  // Display a loading spinner if candidates prop is not yet loaded.
-  if (!candidates) {
+  // PDF generation handler (called from the drawer)
+  const handleGeneratePDF = async () => {
+    setPdfLoading(true);
+    try {
+      const blob = await generateCandidatePDF(selectedCandidate.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selectedCandidate.name.replace(/\s+/g, "_")}_details.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
       <Center h="200px">
         <Spinner size="xl" color="purple.400" thickness="4px" />
@@ -164,15 +246,67 @@ const CandidateTable = ({ candidates, onSelect }) => {
 
   return (
     <Box bg="#1E1E1E" p={{ base: 4, md: 6 }} borderRadius="md">
-      {/* Header row with "Candidates" heading and Month-Year filter */}
+      {/* Header: Title and Month-Year filter */}
       <Flex justify="space-between" align="center" mb={4}>
         <Heading size="lg" color="white">
           Candidates
         </Heading>
-        {/* (Additional filter UI can go here) */}
+        <Select
+          placeholder="Select Month"
+          size="sm"
+          bg="#2A2A2A"
+          color="gray.400"
+          borderRadius="full"
+          border="none"
+          w="fit-content"
+          py={1}
+          _focus={{ outline: "none", boxShadow: "0 0 0 2px #6E38E0" }}
+          _hover={{ bg: "#333333", color: "white" }}
+          value={monthYearFilter}
+          onChange={handleMonthYearChange}
+        >
+          {monthOptions.map((opt) => (
+            <option
+              key={opt.value}
+              value={opt.value}
+              style={{ backgroundColor: "#1E1E1E", color: "#fff" }}
+            >
+              {opt.label}
+            </option>
+          ))}
+        </Select>
       </Flex>
 
-      {/* Table container */}
+      {/* Tabs for All, Accepted, Rejected */}
+      <Tabs index={tabIndex} onChange={handleTabsChange} color="white" variant="unstyled" mb={4}>
+        <TabList>
+          {["All", "Accepted", "Rejected"].map((label, idx) => (
+            <Tab
+              key={label}
+              color="white"
+              position="relative"
+              pb={2}
+              mr={4}
+              _selected={{ fontWeight: "semibold" }}
+              _after={{
+                content: '""',
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                height: "2px",
+                bgGradient: "linear(to-r, #6E38E0, #FF5F36)",
+                opacity: tabIndex === idx ? 1 : 0,
+                transition: "opacity 0.2s",
+              }}
+            >
+              {label}
+            </Tab>
+          ))}
+        </TabList>
+      </Tabs>
+
+      {/* Table */}
       <Box overflowX="auto" borderRadius="lg" minH="400px">
         <Table variant="unstyled" size="md">
           <Thead>
@@ -182,7 +316,6 @@ const CandidateTable = ({ candidates, onSelect }) => {
                 fontSize="xs"
                 py={3}
                 borderTopLeftRadius="lg"
-                borderBottomLeftRadius="lg"
                 textTransform="none"
                 textAlign="center"
               >
@@ -216,13 +349,7 @@ const CandidateTable = ({ candidates, onSelect }) => {
                   <SortIndicator field="stage" />
                 </Flex>
               </Th>
-              <Th
-                color="#898989"
-                fontSize="xs"
-                py={3}
-                textTransform="none"
-                textAlign="center"
-              >
+              <Th color="#898989" fontSize="xs" py={3} textTransform="none" textAlign="center">
                 Applied Role
               </Th>
               <Th
@@ -267,13 +394,22 @@ const CandidateTable = ({ candidates, onSelect }) => {
                   bottom: 0,
                   height: "1px",
                   backgroundColor: "#333",
-                  display:
-                    index !== sortedCandidates.length - 1 ? "block" : "none",
+                  display: index !== sortedCandidates.length - 1 ? "block" : "none",
                 }}
               >
                 <Td pt={3} pb={3} textAlign="center">
                   <Flex align="center" gap={3} justify="center">
-                    <Avatar size="sm" name={candidate.name} />
+                    {candidate.svg_photo ? (
+                      <Box boxSize="40px">
+                        <img
+                          src={candidate.svg_photo}
+                          alt={candidate.name}
+                          style={{ width: "40px", height: "40px", borderRadius: "50%" }}
+                        />
+                      </Box>
+                    ) : (
+                      <Avatar size="sm" name={candidate.name} />
+                    )}
                     <Text color="white">{candidate.name}</Text>
                   </Flex>
                 </Td>
@@ -295,9 +431,7 @@ const CandidateTable = ({ candidates, onSelect }) => {
                 <Td pt={3} pb={3} textAlign="center">
                   <Flex align="center" justify="center">
                     <AttachmentIcon mr={1} color="gray.400" />
-                    <Text color="white">
-                      {candidate.attachments} files
-                    </Text>
+                    <Text color="white">{candidate.attachments} files</Text>
                   </Flex>
                 </Td>
               </Tr>
@@ -306,46 +440,44 @@ const CandidateTable = ({ candidates, onSelect }) => {
         </Table>
       </Box>
 
-      {/* Candidate Detail Drawer */}
-      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="sm">
+      {/* Drawer for Candidate Details */}
+      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="md">
         <DrawerOverlay />
-        <DrawerContent bg="#151515">
+        <DrawerContent bg="#1E1E1E">
           <DrawerCloseButton color="white" />
-          <DrawerHeader color="white">Candidate Details</DrawerHeader>
+          <DrawerHeader color="white">
+            {selectedCandidate ? selectedCandidate.name : "Candidate Details"}
+          </DrawerHeader>
           <DrawerBody>
             {selectedCandidate ? (
               <Box color="white">
-                {/* Profile Section */}
-                <Box
-                  w="full"
-                  maxW="md"
-                  bg="#1A1A1A"
-                  borderRadius="lg"
-                  py={3}
-                  px={4}
-                >
+                {/* Candidate Info */}
+                <Box w="full" maxW="md" bg="#1A1A1A" borderRadius="lg" py={3} px={4}>
                   <VStack align="center" spacing={3}>
-                    <Avatar size="lg" name={selectedCandidate.name} />
+                    {selectedCandidate.svg_photo ? (
+                      <Box boxSize="lg">
+                        <img
+                          src={selectedCandidate.svg_photo}
+                          alt={selectedCandidate.name}
+                          style={{ width: "80px", height: "80px", borderRadius: "50%" }}
+                        />
+                      </Box>
+                    ) : (
+                      <Avatar size="lg" name={selectedCandidate.name} />
+                    )}
                     <VStack spacing={1} mb={4}>
-                      <Text fontSize="large" fontWeight="bold">
-                        {selectedCandidate.name}
-                      </Text>
-                      <Text color="gray.500" fontSize="md">
-                        {selectedCandidate.applied_role}
-                      </Text>
+                      <Heading size="md">{selectedCandidate.name}</Heading>
+                      <Text color="gray.500">{selectedCandidate.applied_role}</Text>
                     </VStack>
-                    
                     <Flex gap={12} justify="center">
                       <Box>
                         <Flex gap={3}>
                           <Icon as={EmailIcon} color="gray.500" boxSize={5} />
                           <Box>
-                            <Text color="gray.500" fontSize="xs" letterSpacing="wide">
+                            <Text fontSize="xs" color="gray.500" letterSpacing="wide">
                               EMAIL
                             </Text>
-                            <Text color="white" fontSize="sm">
-                              {selectedCandidate.email}
-                            </Text>
+                            <Text fontSize="sm">{selectedCandidate.email}</Text>
                           </Box>
                         </Flex>
                       </Box>
@@ -353,12 +485,10 @@ const CandidateTable = ({ candidates, onSelect }) => {
                         <Flex gap={3}>
                           <Icon as={PhoneIcon} color="gray.500" boxSize={5} />
                           <Box>
-                            <Text color="gray.500" fontSize="xs" letterSpacing="wide">
-                              PHONE NUMBER
+                            <Text fontSize="xs" color="gray.500" letterSpacing="wide">
+                              PHONE
                             </Text>
-                            <Text color="white" fontSize="sm">
-                              {selectedCandidate.phone}
-                            </Text>
+                            <Text fontSize="sm">{selectedCandidate.phone}</Text>
                           </Box>
                         </Flex>
                       </Box>
@@ -366,170 +496,20 @@ const CandidateTable = ({ candidates, onSelect }) => {
                   </VStack>
                 </Box>
 
-                {/* Application Details */}
-                <Box
-                  w="full"
-                  maxW="md"
-                  bg="#1A1A1A"
-                  borderRadius="lg"
-                  p={2}
-                  mt={2}
-                  mb={2}
-                >
-                  <Text fontSize="xl" fontWeight="semibold" mb={4}>
-                    Application Details
-                  </Text>
-                  <VStack spacing={0} align="stretch" position="relative">
-                    {/* Vertical line */}
-                    <Box
-                      position="absolute"
-                      left="15px"
-                      top="30px"
-                      bottom="30px"
-                      width="2px"
-                      bg="#333"
-                      zIndex={0}
-                    />
-                    {[
-                      { label: "Screening", date: "March 20, 2023" },
-                      { label: "Design Challenge", date: "March 22, 2023" },
-                      { label: "Interview" },
-                      { label: "HR Round" },
-                      { label: "Hired" },
-                    ].map((stage, idx) => {
-                      const currentStageIndex = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"].findIndex(
-                        (s) => s === selectedCandidate.stage
-                      );
-                      let status = "pending";
-                      if (idx < currentStageIndex) {
-                        status = "completed";
-                      } else if (idx === currentStageIndex) {
-                        status = "current";
-                      }
-
-                      return (
-                        <Flex key={stage.label} align="flex-start" gap={4} py={3} position="relative">
-                          <Circle
-                            size="8"
-                            bg={
-                              status === "completed"
-                                ? "green.500"
-                                : status === "current"
-                                ? "#FFB547"
-                                : "#333"
-                            }
-                            zIndex={1}
-                          >
-                            {status === "completed" ? (
-                              <CheckIcon color="white" boxSize={4} />
-                            ) : (
-                              <Text color="white" fontSize="sm">
-                                {idx + 1}
-                              </Text>
-                            )}
-                          </Circle>
-                          <Box flex="1">
-                            <Text fontSize="sm" color="white" mb={stage.date ? 1 : 0}>
-                              {stage.label}
-                            </Text>
-                            {stage.date && (
-                              <Text fontSize="xs" color="gray.400">
-                                {stage.date}
-                              </Text>
-                            )}
-                          </Box>
-                          {status === "current" && (
-                            <Box
-                              bg="#2A2A2A"
-                              px={3}
-                              py={1}
-                              borderRadius="full"
-                              alignSelf="center"
-                            >
-                              <Text fontSize="xs" color="#FFB547">
-                                Under Review
-                              </Text>
-                            </Box>
-                          )}
-                        </Flex>
-                      );
-                    })}
-                  </VStack>
+                {/* Additional Candidate Details */}
+                <Box mt={4} p={4} bg="#1A1A1A" borderRadius="lg">
+                  <Text>Stage: {selectedCandidate.stage}</Text>
+                  <Text>Status: {selectedCandidate.status}</Text>
+                  <Text>Role: {selectedCandidate.applied_role}</Text>
+                  <Text>Rating: {selectedCandidate.rating}</Text>
+                  {/* Additional fields (experience, location, etc.) can be added here */}
                 </Box>
 
-                {/* Experience */}
-                <Box
-                  w="full"
-                  maxW="md"
-                  bg="#1A1A1A"
-                  borderRadius="lg"
-                  p={6}
-                  mt={8}
-                  mb={8}
-                >
-                  <Box mb={8}>
-                    <Text fontSize="lg" fontWeight="semibold" mb={4}>
-                      Experience
-                    </Text>
-                    <Flex align="center" gap={3} mb={2}>
-                      <Avatar size="sm" name="Airbnb" bg="red.500" />
-                      <Box>
-                        <Text fontWeight="medium">Airbnb</Text>
-                        <Text fontSize="sm" color="gray.400">
-                          Oct '20 - Present
-                        </Text>
-                      </Box>
-                    </Flex>
-                    <Text fontSize="sm" color="gray.400">
-                      Led the redesign of the booking process for Airbnb's mobile app, resulting in a 36% increase in conversion rates and improved user satisfaction.
-                    </Text>
-                  </Box>
-                </Box>
-
-                <Flex gap={3}>
-                  <Button
-                    flex="1"
-                    bgGradient="linear(to-r, #6E38E0, #FF5F36)"
-                    color="white"
-                    _hover={{ opacity: 0.9 }}
-                    borderRadius="none"
-                    rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
-                  >
-                    Move to Next Step
-                  </Button>
-                  <Button
-                    bgGradient="linear(to-r, #38E0AE, #AF36FF)"
-                    color="white"
-                    _hover={{ opacity: 0.9 }}
-                    borderRadius="none"
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    bgGradient="linear(to-r, #E03838, #FFA836)"
-                    color="white"
-                    _hover={{ opacity: 0.9 }}
-                    borderRadius="none"
-                    isLoading={pdfLoading}
-                    onClick={async () => {
-                      setPdfLoading(true);
-                      try {
-                        const blob = await generateCandidatePDF(selectedCandidate.id);
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${selectedCandidate.name.replace(/\s+/g, "_")}_details.pdf`;
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                      } catch (err) {
-                        console.error("Error generating PDF:", err);
-                      } finally {
-                        setPdfLoading(false);
-                      }
-                    }}
-                  >
+                {/* Action Buttons */}
+                <Flex gap={3} mt={4}>
+                  <Button colorScheme="green">Move to Next Step</Button>
+                  <Button colorScheme="red">Reject</Button>
+                  <Button colorScheme="purple" isLoading={pdfLoading} onClick={handleGeneratePDF}>
                     PDF
                   </Button>
                 </Flex>

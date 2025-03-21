@@ -26,7 +26,7 @@ import weasyprint
 
 # Constants
 STAGES = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired", "Rejected"]
-STATUSES = ["Pending", "In Process", "Selected", "Rejected"]
+STATUSES = ["Pending", "In Process", "Selected", "Rejected", "Accepted"]
 SORT_FIELDS = ["name", "application_date", "rating"]
 DEFAULT_SORT = "application_date"
 DEFAULT_STATUS = "Pending"
