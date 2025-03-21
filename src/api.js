@@ -15,7 +15,6 @@ const ENDPOINTS = {
   STATUS: (id) => `/candidates/${id}/status`,
   PDF: (id) => `/candidates/${id}/pdf`,
   IMPORT: '/candidates/import',
-  OPENINGS: '/openings',
   SORT: '/candidates/sort'
 };
 
@@ -223,18 +222,6 @@ export const importCandidates = async (file) => {
  */
 
 /**
- * Fetches available job openings
- * @returns {Promise<JobOpening[]>} Array of job openings
- */
-export const fetchOpenings = async () => {
-  try {
-    const response = await api.get(ENDPOINTS.OPENINGS);
-    return response.data;
-  } catch (error) {
-    console.error("Falling back to mock openings data:", error);
-    return mockOpenings;
-  }
-};
 
 /**
  * Fetches a single candidate by ID

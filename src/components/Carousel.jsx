@@ -9,7 +9,6 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import Slider from "react-slick";
-import { fetchOpenings } from "../api";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { FiMapPin, FiClock, FiArrowUpRight } from "react-icons/fi";
@@ -67,21 +66,6 @@ const Carousel = () => {
   const [sortBy, setSortBy] = useState("latest");
   
   const slidesToShow = useBreakpointValue({ base: 1, sm: 1, md: 2, lg: 3, xl: 4 });
-
-  useEffect(() => {
-    const loadOpenings = async () => {
-      try {
-      const data = await fetchOpenings();
-        if (data && data.length > 0) {
-          setOpenings(data);
-        }
-      } catch (error) {
-        console.error("Error fetching openings:", error);
-        // Keep using dummy data if fetch fails
-      }
-    };
-    loadOpenings();
-  }, []);
 
   const handleSort = (criteria) => {
     setSortBy(criteria);
