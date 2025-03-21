@@ -292,3 +292,13 @@ export const sortCandidates = async (candidates, sortField, sortDirection) => {
     return sorted;
   }
 };
+
+export const searchCandidates = async (query) => {
+  try {
+    const response = await api.get('/candidates/search/', { params: { query } });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching candidates:", error);
+    throw error;
+  }
+};

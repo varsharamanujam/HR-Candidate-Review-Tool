@@ -23,9 +23,8 @@ import {
   SettingsIcon,
   BellIcon,
   HamburgerIcon,
-  ChevronDownIcon,
 } from "@chakra-ui/icons";
-import { fetchCandidates } from "./api";
+import { fetchCandidates, searchCandidates } from "./api"; // ensure searchCandidates is implemented in your API file
 import Sidebar from "./components/sidebar";
 import CandidateTable from "./components/candidateTable";
 import Carousel from "./components/Carousel";
@@ -58,6 +57,7 @@ function App() {
   const [candidates, setCandidates] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const { isOpen, onOpen, onClose } = useDisclosure();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -70,26 +70,51 @@ function App() {
   const [monthYearFilter, setMonthYearFilter] = useState("");
   const monthOptions = generateMonthOptions();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const candidatesData = await fetchCandidates();
-        setCandidates(candidatesData);
-      } catch (error) {
-        console.error("Error fetching candidates:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Function to load all candidates
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const candidatesData = await fetchCandidates();
+      setCandidates(candidatesData);
+    } catch (error) {
+      console.error("Error fetching candidates:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Load all candidates on initial mount
+  useEffect(() => {
     loadData();
   }, []);
 
+  // Handler for the search input change
+  const handleSearchChange = async (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    // If the search query is empty, reload all candidates
+    if (query.trim() === "") {
+      await loadData();
+    } else {
+      try {
+        setLoading(true);
+        // Call the search API endpoint to get matching candidates
+        const searchedCandidates = await searchCandidates(query);
+        setCandidates(searchedCandidates);
+      } catch (error) {
+        console.error("Error searching candidates:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Handler for month-year filter (if needed)
   const handleMonthYearChange = (e) => {
     const newValue = e.target.value;
     setMonthYearFilter(newValue);
-    // Implement filtering logic if needed
+    // Implement additional filtering logic if required
   };
 
   return (
@@ -117,13 +142,7 @@ function App() {
               RSKD Talent
             </Heading>
           </Flex>
-          <Flex
-            flex="1"
-            justify="space-between"
-            align="center"
-            px="6"
-            bg={headerBg}
-          >
+          <Flex flex="1" justify="space-between" align="center" px="6" bg={headerBg}>
             {/* Mobile Menu Button */}
             <Show below="md">
               <IconButton
@@ -139,7 +158,7 @@ function App() {
               </Heading>
             </Show>
 
-            {/* Search */}
+            {/* Search Input */}
             <InputGroup maxW="340px" display={{ base: "none", lg: "block" }}>
               <InputLeftElement pointerEvents="none">
                 <SearchIcon color="gray.400" />
@@ -151,6 +170,8 @@ function App() {
                 _placeholder={{ color: "gray.500" }}
                 borderRadius="full"
                 className="focus:ring-1 focus:ring-purple"
+                value={searchQuery}
+                onChange={handleSearchChange}
               />
             </InputGroup>
 
@@ -227,22 +248,13 @@ function App() {
           >
             {loading ? (
               <Flex justify="center" align="center" h="full">
-                <Spinner
-                  size="xl"
-                  color="#6E38E0"
-                  thickness="4px"
-                  speed="0.65s"
-                  emptyColor="gray.700"
-                />
+                <Spinner size="xl" color="#6E38E0" thickness="4px" speed="0.65s" emptyColor="gray.700" />
               </Flex>
             ) : (
               <>
                 <Carousel />
                 <br />
-                <CandidateTable
-                  candidates={candidates}
-                  onSelect={setSelectedCandidate}
-                />
+                <CandidateTable candidates={candidates} onSelect={setSelectedCandidate} />
               </>
             )}
           </Box>

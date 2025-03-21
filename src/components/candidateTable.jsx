@@ -14,7 +14,7 @@
  * @requires @chakra-ui/icons
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Table,
@@ -31,11 +31,7 @@ import {
   Icon,
   Tabs,
   TabList,
-  TabPanels,
   Tab,
-  TabPanel,
-  Select,
-  Heading,
   Drawer,
   DrawerOverlay,
   DrawerContent,
@@ -46,6 +42,7 @@ import {
   Button,
   VStack,
   Circle,
+  Heading,
 } from "@chakra-ui/react";
 import {
   StarIcon,
@@ -55,57 +52,9 @@ import {
   EmailIcon,
   PhoneIcon,
   CheckIcon,
-  TimeIcon,
 } from "@chakra-ui/icons";
-import {
-  fetchCandidates,
-  filterCandidates,
-  getCandidate,
-  generateCandidatePDF
-} from "../api";
-
-// Constants
-const APPLICATION_STAGES = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"];
-const SORT_FIELDS = {
-  NAME: "name",
-  RATING: "rating",
-  STAGE: "stage",
-  APPLICATION_DATE: "application_date"
-};
 
 // Utility Functions
-
-/**
- * Generates an array of month-year options for the last 12 months
- * @returns {Array<{value: {month: number, year: number}, label: string}>} Array of month options
- */
-const generateMonthOptions = () => {
-  const options = [];
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth();
-
-  for (let i = 0; i < 12; i++) {
-    let month = currentMonth - i;
-    let year = currentYear;
-    
-    if (month < 0) {
-      month += 12;
-      year -= 1;
-    }
-
-    const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
-    const value = {
-      month: month + 1, // API expects 1-12
-      year
-    };
-    const label = `${monthName} ${year}`;
-    
-    options.push({ value, label });
-  }
-
-  return options;
-};
 
 /**
  * Formats a date string into a readable format
@@ -114,10 +63,10 @@ const generateMonthOptions = () => {
  */
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 };
 
@@ -126,172 +75,63 @@ const formatDate = (dateString) => {
  * Displays a table of candidates with sorting, filtering, and detailed view capabilities.
  *
  * @component
+ * @param {Array} candidates - Array of candidate objects to display.
+ * @param {Function} onSelect - Function to call when a candidate row is clicked.
  * @example
  * return (
- *   <CandidateTable />
+ *   <CandidateTable candidates={candidates} onSelect={setSelectedCandidate} />
  * )
  */
+const CandidateTable = ({ candidates, onSelect }) => {
+  // Expect candidates to be passed from parent.
+  // If candidates is undefined or empty, you could display a loading state.
 
-const CandidateTable = () => {
-  const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  // Sorting state (default sort: application_date, descending)
+  const [sortField, setSortField] = useState("application_date");
+  const [sortDirection, setSortDirection] = useState("desc");
 
-  // Sorting state
-  const [sortField, setSortField] = useState("");
-  const [sortDirection, setSortDirection] = useState("asc");
-
-  // Tabs
+  // Tabs state (if you need filtering by status, etc.)
   const [tabIndex, setTabIndex] = useState(0);
 
-  // Month-year filter
-  const [monthYearFilter, setMonthYearFilter] = useState("");
-  const monthOptions = generateMonthOptions();
-
-  // Drawer state
+  // Drawer state for candidate details
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedCandidate, setSelectedCandidate] = useState(null);
 
-  // Load candidates on mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchCandidates();
-      setCandidates(data);
-    } catch (err) {
-      console.error("Error fetching candidates:", err);
-    }
-    setLoading(false);
-  };
-
-  // Reusable filter function
-  const applyFilters = async (currentTab, currentMonthYear) => {
-    setLoading(true);
-    try {
-      const filters = {
-        status: currentTab === 1 ? 'Accepted' : currentTab === 2 ? 'Rejected' : undefined
-      };
-
-      // Add month and year if present
-      if (currentMonthYear) {
-        filters.month = currentMonthYear.month;
-        filters.year = currentMonthYear.year;
+  // Sorting function: sort candidates based on the current sortField and sortDirection.
+  const sortedCandidates = useMemo(() => {
+    if (!candidates || candidates.length === 0) return [];
+    let sorted = [...candidates];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === "name") {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortField === "rating") {
+        comparison = a.rating - b.rating;
+      } else if (sortField === "stage") {
+        comparison = a.stage.localeCompare(b.stage);
+      } else if (sortField === "application_date") {
+        comparison =
+          new Date(a.application_date) - new Date(b.application_date);
       }
-      
-      const filteredData = await filterCandidates(filters);
-      setCandidates(filteredData);
-    } catch (err) {
-      console.error("Error filtering candidates:", err);
-    }
-    setLoading(false);
-  };
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+    return sorted;
+  }, [candidates, sortField, sortDirection]);
 
-  const handleTabsChange = async (index) => {
-    setTabIndex(index);
-    
-    // Build filters
-    let filters = {};
-    if (index === 1) {
-      filters.status = "Accepted";
-    } else if (index === 2) {
-      filters.status = "Rejected";
-    }
-
-    // Add month and year if present
-    if (monthYearFilter) {
-      const [year, month] = monthYearFilter.split('-').map(Number);
-      filters.month = month;
-      filters.year = year;
-    }
-
-    setLoading(true);
-    try {
-      const filtered = await filterCandidates(filters);
-      setCandidates(filtered);
-    } catch (err) {
-      console.error("Error filtering candidates:", err);
-    }
-    setLoading(false);
-  };
-
-  const handleMonthYearChange = async (e) => {
-    const value = e.target.value;
-    setMonthYearFilter(value);
-
-    // Build filters
-    let filters = {};
-    if (tabIndex === 1) {
-      filters.status = "Accepted";
-    } else if (tabIndex === 2) {
-      filters.status = "Rejected";
-    }
-
-    // Add month and year if a value was selected
-    if (value) {
-      const [year, month] = value.split('-').map(Number);
-      filters.month = month;
-      filters.year = year;
-    }
-
-    setLoading(true);
-    try {
-      const filtered = await filterCandidates(filters);
-      setCandidates(filtered);
-    } catch (err) {
-      console.error("Error filtering by month:", err);
-    }
-    setLoading(false);
-  };
-
-  // Sorting
   const handleSort = (field) => {
     if (sortField === field) {
-      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortField(field);
+      // When changing sort field, default to ascending
       setSortDirection("asc");
     }
   };
 
-  const sortedCandidates = useMemo(() => {
-    if (!candidates || candidates.length === 0) {
-      return [];
-    }
-
-    let sorted = [...candidates];
-    if (sortField) {
-      sorted.sort((a, b) => {
-        let comparison = 0;
-        
-        if (sortField === "name") {
-          comparison = a.name.localeCompare(b.name);
-        } else if (sortField === "rating") {
-          comparison = a.rating - b.rating;
-        } else if (sortField === "stage") {
-          comparison = a.stage.localeCompare(b.stage);
-        } else if (sortField === "application_date") {
-          comparison = new Date(a.application_date) - new Date(b.application_date);
-        }
-        
-        return sortDirection === "asc" ? comparison : -comparison;
-      });
-    }
-    
-    return sorted;
-  }, [candidates, sortField, sortDirection]);
-
   const SortIndicator = ({ field }) => {
     const isActive = sortField === field;
-    const icon = isActive
-      ? sortDirection === "asc"
-        ? ArrowUpIcon
-        : ArrowDownIcon
-      : ArrowUpIcon;
-
+    const icon =
+      isActive && sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon;
     return (
       <Icon
         as={icon}
@@ -304,18 +144,17 @@ const CandidateTable = () => {
     );
   };
 
-  // Handle row click => open drawer
-  const handleCandidateClick = async (candidateId) => {
-    try {
-      const c = candidates.find((cand) => cand.id === candidateId);
-      setSelectedCandidate(c);
+  // Row click: open drawer with candidate details.
+  const handleCandidateClick = (candidateId) => {
+    const candidate = candidates.find((cand) => cand.id === candidateId);
+    if (candidate) {
+      setSelectedCandidate(candidate);
       onOpen();
-    } catch (err) {
-      console.error("Error fetching single candidate:", err);
     }
   };
 
-  if (loading) {
+  // Display a loading spinner if candidates prop is not yet loaded.
+  if (!candidates) {
     return (
       <Center h="200px">
         <Spinner size="xl" color="purple.400" thickness="4px" />
@@ -330,66 +169,8 @@ const CandidateTable = () => {
         <Heading size="lg" color="white">
           Candidates
         </Heading>
-        <Select
-          placeholder="Select Month"
-          size="sm"
-          bg="#2A2A2A"
-          color="gray.400"
-          borderRadius="full"
-          border="none"
-          w="fit-content"
-          py={1}
-          _focus={{ outline: "none", boxShadow: "0 0 0 2px #6E38E0" }}
-          _hover={{ bg: "#333333", color: "white" }}
-          value={monthYearFilter}
-          onChange={handleMonthYearChange}
-        >
-          {monthOptions.map((opt) => (
-            <option
-              key={`${opt.value.year}-${opt.value.month}`}
-              value={`${opt.value.year}-${opt.value.month}`}
-              style={{ backgroundColor: "#1E1E1E", color: "#fff" }}
-            >
-              {opt.label}
-            </option>
-          ))}
-        </Select>
+        {/* (Additional filter UI can go here) */}
       </Flex>
-
-      {/* Tabs for All, Accepted, Rejected */}
-      <Tabs
-        index={tabIndex}
-        onChange={handleTabsChange}
-        color="white"
-        variant="unstyled"
-        mb={4}
-      >
-        <TabList>
-          {["All", "Accepted", "Rejected"].map((label, idx) => (
-            <Tab
-              key={label}
-              color="white"
-              position="relative"
-              pb={2}
-              mr={4}
-              _selected={{ fontWeight: "semibold" }}
-              _after={{
-                content: '""',
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                width: "100%",
-                height: "2px",
-                bgGradient: "linear(to-r, #6E38E0, #FF5F36)",
-                opacity: tabIndex === idx ? 1 : 0,
-                transition: "opacity 0.2s",
-              }}
-            >
-              {label}
-            </Tab>
-          ))}
-        </TabList>
-      </Tabs>
 
       {/* Table container */}
       <Box overflowX="auto" borderRadius="lg" minH="400px">
@@ -514,7 +295,9 @@ const CandidateTable = () => {
                 <Td pt={3} pb={3} textAlign="center">
                   <Flex align="center" justify="center">
                     <AttachmentIcon mr={1} color="gray.400" />
-                    <Text color="white">{candidate.attachments} files</Text>
+                    <Text color="white">
+                      {candidate.attachments} files
+                    </Text>
                   </Flex>
                 </Td>
               </Tr>
@@ -524,7 +307,7 @@ const CandidateTable = () => {
       </Box>
 
       {/* Candidate Detail Drawer */}
-      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size = "sm">
+      <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="sm">
         <DrawerOverlay />
         <DrawerContent bg="#151515">
           <DrawerCloseButton color="white" />
@@ -542,10 +325,7 @@ const CandidateTable = () => {
                   px={4}
                 >
                   <VStack align="center" spacing={3}>
-                    <Avatar
-                      size="lg"
-                      name={selectedCandidate.name}
-                    />
+                    <Avatar size="lg" name={selectedCandidate.name} />
                     <VStack spacing={1} mb={4}>
                       <Text fontSize="large" fontWeight="bold">
                         {selectedCandidate.name}
@@ -615,12 +395,11 @@ const CandidateTable = () => {
                       { label: "Design Challenge", date: "March 22, 2023" },
                       { label: "Interview" },
                       { label: "HR Round" },
-                      { label: "Hired" }
+                      { label: "Hired" },
                     ].map((stage, idx) => {
-                      // Determine stage status based on selectedCandidate.stage
-                      const currentStageIndex = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"]
-                        .findIndex(s => s === selectedCandidate.stage);
-                      
+                      const currentStageIndex = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"].findIndex(
+                        (s) => s === selectedCandidate.stage
+                      );
                       let status = "pending";
                       if (idx < currentStageIndex) {
                         status = "completed";
@@ -633,16 +412,20 @@ const CandidateTable = () => {
                           <Circle
                             size="8"
                             bg={
-                              status === "completed" ? "green.500" :
-                              status === "current" ? "#FFB547" :
-                              "#333"
+                              status === "completed"
+                                ? "green.500"
+                                : status === "current"
+                                ? "#FFB547"
+                                : "#333"
                             }
                             zIndex={1}
                           >
                             {status === "completed" ? (
                               <CheckIcon color="white" boxSize={4} />
                             ) : (
-                              <Text color="white" fontSize="sm">{idx + 1}</Text>
+                              <Text color="white" fontSize="sm">
+                                {idx + 1}
+                              </Text>
                             )}
                           </Circle>
                           <Box flex="1">
@@ -684,11 +467,10 @@ const CandidateTable = () => {
                   mt={8}
                   mb={8}
                 >
-                <Box mb={8}>
-                  <Text fontSize="lg" fontWeight="semibold" mb={4}>
-                    Experience
-                  </Text>
-                  
+                  <Box mb={8}>
+                    <Text fontSize="lg" fontWeight="semibold" mb={4}>
+                      Experience
+                    </Text>
                     <Flex align="center" gap={3} mb={2}>
                       <Avatar size="sm" name="Airbnb" bg="red.500" />
                       <Box>
@@ -699,11 +481,9 @@ const CandidateTable = () => {
                       </Box>
                     </Flex>
                     <Text fontSize="sm" color="gray.400">
-                      Led the redesign of the booking process for Airbnb's
-                      mobile app, resulting in a 36% increase in conversion
-                      rates and improved user satisfaction.
+                      Led the redesign of the booking process for Airbnb's mobile app, resulting in a 36% increase in conversion rates and improved user satisfaction.
                     </Text>
-                </Box>
+                  </Box>
                 </Box>
 
                 <Flex gap={3}>
@@ -736,9 +516,9 @@ const CandidateTable = () => {
                       try {
                         const blob = await generateCandidatePDF(selectedCandidate.id);
                         const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
+                        const a = document.createElement("a");
                         a.href = url;
-                        a.download = `${selectedCandidate.name.replace(/\s+/g, '_')}_details.pdf`;
+                        a.download = `${selectedCandidate.name.replace(/\s+/g, "_")}_details.pdf`;
                         document.body.appendChild(a);
                         a.click();
                         window.URL.revokeObjectURL(url);
