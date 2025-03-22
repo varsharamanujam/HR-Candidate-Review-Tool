@@ -133,7 +133,8 @@
           "description": "Created an interactive dashboard to track and forecast market risks.",
           "link": "https://example.com/projects/risk-dashboard"
         }
-      ]
+      ],
+      "svg_photo": "backend/test_files/simon.svg"
     },
     {
       "name": "Ashley Brooke",
@@ -181,7 +182,8 @@
           "description": "Managed a portfolio of investments and optimized returns via strategic asset allocation.",
           "link": "https://example.com/projects/investment-portfolio"
         }
-      ]
+      ],
+      "svg_photo": "backend/test_files/ashley.svg"
     },
     {
       "name": "Nishant Talwar",
@@ -228,7 +230,8 @@
           "description": "Led a complete revamp of an e-commerce site, improving conversions by 35%.",
           "link": "https://example.com/projects/ecommerce-redesign"
         }
-      ]
+      ],
+      "svg_photo": "backend/test_files/nishant.svg"
     },
     {
       "name": "Mark Jacobs",
@@ -268,7 +271,8 @@
           "description": "Collaborated with micro-influencers to boost brand visibility.",
           "link": "https://example.com/projects/social-influencer"
         }
-      ]
+      ],
+      "svg_photo": "backend/test_files/mark.svg"
     }
   ]
   
