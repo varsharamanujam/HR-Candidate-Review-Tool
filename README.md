@@ -53,7 +53,7 @@ cd ..
 1. Start the backend server:
 ```bash
 cd backend
-python run.py
+uvicorn main:app
 ```
 The backend will be available at http://localhost:8000
 
