@@ -91,3 +91,5 @@ The backend API provides the following endpoints:
 - `GET /candidates/{id}` - Get candidate details
 - `GET /candidates/{id}/pdf` - Generate candidate PDF
 - `GET /candidates/filter` - Filter candidates by criteria
+- `POST /candidates/import` - Import candidates from a JSON
+- `GET /candidates/search/` - To search any candidates, applied roles and more
