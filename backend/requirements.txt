@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pandas
+pydantic
+SQLAlchemy
+weasyprint
+python-multipart
+typing-extensions
