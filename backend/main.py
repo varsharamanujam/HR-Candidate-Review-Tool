@@ -85,6 +85,12 @@ class CandidateResponse(BaseModel):
     location: Optional[str]
     attachments: int
     application_date: datetime
+    basic_info: Optional[str]
+    skills: Optional[str]  # JSON string storing skills
+    education: Optional[str]  # JSON string storing education details
+    experience_details: Optional[str]  # JSON string storing detailed experience
+    projects: Optional[str]  # JSON string storing project details
+    svg_photo: Optional[str]  # Path to candidate's SVG photo
 
     class Config:
         from_attributes = True
@@ -105,6 +111,12 @@ class CandidateCreate(BaseModel):
         stage (str): Interview stage, defaults to "Screening"
         location (Optional[str]): Candidate's location
         attachments (int): Number of attachments
+        basic_info (Optional[str]): Basic information about the candidate
+        skills (Optional[str]): JSON string storing skills
+        education (Optional[str]): JSON string storing education details
+        experience_details (Optional[str]): JSON string storing detailed experience
+        projects (Optional[str]): JSON string storing project details
+        svg_photo (Optional[str]): Path to candidate's SVG photo
     """
     name: str
     email: str
@@ -117,6 +129,12 @@ class CandidateCreate(BaseModel):
     stage: str = "Screening"
     location: Optional[str] = None
     attachments: int = 0
+    basic_info: Optional[str] = None
+    skills: Optional[str] = None
+    education: Optional[str] = None
+    experience_details: Optional[str] = None
+    projects: Optional[str] = None
+    svg_photo: Optional[str] = None
 
 class CandidateUpdate(BaseModel):
     """
@@ -428,12 +446,109 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                     </div>
                 """
 
+        # Parse additional JSON fields
+        try:
+            skills = json.loads(candidate.skills) if candidate.skills else []
+            education = json.loads(candidate.education) if candidate.education else []
+            experience_details = json.loads(candidate.experience_details) if candidate.experience_details else []
+            projects = json.loads(candidate.projects) if candidate.projects else []
+        except json.JSONDecodeError:
+            skills, education, experience_details, projects = [], [], [], []
+
+        # Create sections for additional details
+        skills_section = ""
+        if skills:
+            skills_html = ", ".join(skills)
+            skills_section = f"""
+                <div class="section">
+                    <h2>Skills</h2>
+                    <div class="info-item">
+                        <div class="value">{skills_html}</div>
+                    </div>
+                </div>
+            """
+
+        education_section = ""
+        if education:
+            edu_items = []
+            for edu in education:
+                edu_items.append(f"""
+                    <div class="info-item">
+                        <div class="value">
+                            <strong>{edu.get('degree', '')}</strong><br>
+                            {edu.get('institution', '')}<br>
+                            Year of Completion: {edu.get('year_of_completion', '')}
+                        </div>
+                    </div>
+                """)
+            education_section = f"""
+                <div class="section">
+                    <h2>Education</h2>
+                    <div class="info-grid">
+                        {"".join(edu_items)}
+                    </div>
+                </div>
+            """
+
+        experience_section = ""
+        if experience_details:
+            exp_items = []
+            for exp in experience_details:
+                exp_items.append(f"""
+                    <div class="info-item">
+                        <div class="value">
+                            <strong>{exp.get('company', '')}</strong><br>
+                            Role: {exp.get('role', '')}<br>
+                            Duration: {exp.get('duration', '')}<br>
+                            <p>{exp.get('description', '')}</p>
+                        </div>
+                    </div>
+                """)
+            experience_section = f"""
+                <div class="section">
+                    <h2>Experience Details</h2>
+                    <div class="info-grid">
+                        {"".join(exp_items)}
+                    </div>
+                </div>
+            """
+
+        projects_section = ""
+        if projects:
+            proj_items = []
+            for proj in projects:
+                proj_items.append(f"""
+                    <div class="info-item">
+                        <div class="value">
+                            <strong>{proj.get('name', '')}</strong><br>
+                            <p>{proj.get('description', '')}</p>
+                            <a href="{proj.get('link', '#')}" target="_blank">Project Link</a>
+                        </div>
+                    </div>
+                """)
+            projects_section = f"""
+                <div class="section">
+                    <h2>Projects</h2>
+                    <div class="info-grid">
+                        {"".join(proj_items)}
+                    </div>
+                </div>
+            """
+
         # Create PDF content with improved layout
         html_content = f"""
         <html>
             <head>
                 <meta charset="UTF-8">
                 {css_styles}
+                <style>
+                    .section {{
+                        margin-top: 30px;
+                        padding: 20px;
+                        background: #f8f8f8;
+                        border-radius: 5px;
+                    }}
+                </style>
             </head>
             <body>
                 <h1>Candidate Details</h1>
@@ -479,6 +594,16 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                         <div class="value">{candidate.application_date.strftime('%B %d, %Y')}</div>
                     </div>
                 </div>
+                <div class="section">
+                    <h2>Basic Information</h2>
+                    <div class="info-item">
+                        <div class="value">{candidate.basic_info or "Not provided"}</div>
+                    </div>
+                </div>
+                {skills_section}
+                {education_section}
+                {experience_section}
+                {projects_section}
                 {url_section}
             </body>
         </html>
@@ -563,21 +688,11 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
 @app.post("/seed/")
 def seed_data(db: Session = Depends(get_db)):
     """
-    Seed the database with sample data for development purposes.
-
-    Args:
-        db (Session): Database session dependency
-
-    Returns:
-        dict: Success message
-
-    Example:
-        response = await client.post("/seed/")
+    Seed the database with sample data for development purposes, including extended resume fields.
     """
     # Clear existing data
     db.query(Candidate).delete()
-        
-    # Sample candidates
+    
     candidates = [
         Candidate(
             name="Charlie Kristen",
@@ -595,7 +710,19 @@ def seed_data(db: Session = Depends(get_db)):
                 "cover_letter": "https://example.com/cover/charlie.pdf",
                 "project": "https://example.com/portfolio/charlie"
             }),
-            attachments=3
+            attachments=3,
+            basic_info="A creative designer with a passion for user-centered design.",
+            skills=json.dumps(["Figma", "Sketch", "Prototyping", "User Research", "Design Systems"]),
+            education=json.dumps([
+                {"degree": "B.Des in Interaction Design", "institution": "National Institute of Design", "year_of_completion": 2018}
+            ]),
+            experience_details=json.dumps([
+                {"company": "ABC Design Studio", "role": "UX Designer", "duration": "2018 - 2020", "description": "Redesigned e-commerce platforms, increasing user satisfaction by 25%."},
+                {"company": "XYZ Tech", "role": "Senior UX Designer", "duration": "2020 - Present", "description": "Leading a team to build intuitive SaaS products."}
+            ]),
+            projects=json.dumps([
+                {"name": "Mobile Banking Redesign", "description": "Overhauled UI/UX for a major bank's mobile app, reducing drop-off rates by 30%.", "link": "https://example.com/projects/mobile-banking"}
+            ])
         ),
         Candidate(
             name="Malaika Brown",
@@ -611,7 +738,19 @@ def seed_data(db: Session = Depends(get_db)):
             urls=json.dumps({
                 "resume": "https://example.com/resume/malaika.pdf"
             }),
-            attachments=1
+            attachments=1,
+            basic_info="Enthusiastic growth marketer focused on user acquisition.",
+            skills=json.dumps(["Growth Hacking", "A/B Testing", "Marketing Automation", "SEO"]),
+            education=json.dumps([
+                {"degree": "BBA in Marketing", "institution": "Stanford University", "year_of_completion": 2022}
+            ]),
+            experience_details=json.dumps([
+                {"company": "StartUp Co.", "role": "Growth Specialist", "duration": "2022 - Present", "description": "Increased user sign-ups by 40% through targeted campaigns."}
+            ]),
+            projects=json.dumps([
+                {"name": "Referral Program Launch", "description": "Implemented a referral system that drove a 25% increase in new users.", "link": "https://example.com/projects/referral-launch"}
+            ]),
+            svg_photo="backend/test_files/malaikabrown.svg"
         ),
         Candidate(
             name="Simon Minter",
@@ -628,7 +767,20 @@ def seed_data(db: Session = Depends(get_db)):
                 "resume": "https://example.com/resume/simon.pdf",
                 "project": "https://example.com/projects/simon"
             }),
-            attachments=2
+            attachments=2,
+            basic_info="Detail-oriented analyst with strong data visualization skills.",
+            skills=json.dumps(["Excel Modeling", "Power BI", "Financial Forecasting", "Data Visualization"]),
+            education=json.dumps([
+                {"degree": "B.Com in Finance", "institution": "University of Mumbai", "year_of_completion": 2020}
+            ]),
+            experience_details=json.dumps([
+                {"company": "Invest Corp", "role": "Junior Analyst", "duration": "2020 - 2022", "description": "Assisted in portfolio management."},
+                {"company": "Market Insights Ltd", "role": "Financial Analyst", "duration": "2022 - Present", "description": "Developing financial models."}
+            ]),
+            projects=json.dumps([
+                {"name": "Risk Analysis Dashboard", "description": "Created an interactive dashboard to track market risks.", "link": "https://example.com/projects/risk-dashboard"}
+            ]),
+            svg_photo="backend/test_files/simon.svg"
         ),
         Candidate(
             name="Ashley Brooke",
@@ -646,7 +798,20 @@ def seed_data(db: Session = Depends(get_db)):
                 "cover_letter": "https://example.com/cover/ashley.pdf",
                 "project": "https://example.com/portfolio/ashley"
             }),
-            attachments=3
+            attachments=3,
+            basic_info="Passionate about leveraging data to drive strategic financial decisions.",
+            skills=json.dumps(["Financial Modeling", "Risk Management", "SQL", "Tableau"]),
+            education=json.dumps([
+                {"degree": "MBA in Finance", "institution": "IIM Ahmedabad", "year_of_completion": 2019}
+            ]),
+            experience_details=json.dumps([
+                {"company": "Global Finance Solutions", "role": "Finance Associate", "duration": "2019 - 2021", "description": "Handled forecasting for international transactions."},
+                {"company": "Prestige Analytics", "role": "Senior Financial Analyst", "duration": "2021 - Present", "description": "Leading a team to analyze complex financial instruments."}
+            ]),
+            projects=json.dumps([
+                {"name": "Investment Portfolio Optimization", "description": "Managed a portfolio of investments and optimized returns.", "link": "https://example.com/projects/investment-portfolio"}
+            ]),
+            svg_photo="backend/test_files/ashley.svg"
         ),
         Candidate(
             name="Nishant Talwar",
@@ -663,7 +828,20 @@ def seed_data(db: Session = Depends(get_db)):
                 "resume": "https://example.com/resume/nishant.pdf",
                 "project": "https://example.com/portfolio/nishant"
             }),
-            attachments=2
+            attachments=2,
+            basic_info="Expert in creating intuitive user experiences with a deep understanding of design systems.",
+            skills=json.dumps(["Adobe XD", "Wireframing", "User Interviews", "Design Systems"]),
+            education=json.dumps([
+                {"degree": "B.Tech in Computer Science", "institution": "IIT Delhi", "year_of_completion": 2016}
+            ]),
+            experience_details=json.dumps([
+                {"company": "Alpha Tech", "role": "UI/UX Designer", "duration": "2016 - 2019", "description": "Developed user flows and wireframes for SaaS platforms."},
+                {"company": "Designify Inc", "role": "Sr. UX Designer", "duration": "2019 - Present", "description": "Mentored junior designers and led design sprints."}
+            ]),
+            projects=json.dumps([
+                {"name": "E-Commerce Redesign", "description": "Led a complete revamp of an e-commerce site, improving conversions by 35%.", "link": "https://example.com/projects/ecommerce-redesign"}
+            ]),
+            svg_photo="backend/test_files/nishant.svg"
         ),
         Candidate(
             name="Mark Jacobs",
@@ -679,7 +857,19 @@ def seed_data(db: Session = Depends(get_db)):
             urls=json.dumps({
                 "resume": "https://example.com/resume/mark.pdf"
             }),
-            attachments=1
+            attachments=1,
+            basic_info="Ambitious marketer with experience in early-stage startups.",
+            skills=json.dumps(["Content Marketing", "Email Campaigns", "Market Research"]),
+            education=json.dumps([
+                {"degree": "BA in Marketing", "institution": "Harvard University", "year_of_completion": 2021}
+            ]),
+            experience_details=json.dumps([
+                {"company": "NewWave Startup", "role": "Growth Associate", "duration": "2021 - 2022", "description": "Focused on email and social media strategies."}
+            ]),
+            projects=json.dumps([
+                {"name": "Social Media Influencer Campaign", "description": "Collaborated with influencers to boost brand visibility.", "link": "https://example.com/projects/social-influencer"}
+            ]),
+            svg_photo="backend/test_files/mark.svg"
         )
     ]
     

@@ -14,7 +14,7 @@ Example:
     db = SessionLocal()
 """
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import datetime
@@ -74,6 +74,12 @@ class Candidate(Base):
     stage = Column(String, default="Screening")  # Current interview stage
     location = Column(String, nullable=True)  # Candidate location
     attachments = Column(Integer, default=0)  # Number of attachments/files
+    basic_info = Column(Text, nullable=True)  # Basic information about the candidate
+    skills = Column(Text, nullable=True)  # JSON string storing skills
+    education = Column(Text, nullable=True)  # JSON string storing education details
+    experience_details = Column(Text, nullable=True)  # JSON string storing detailed experience
+    projects = Column(Text, nullable=True)  # JSON string storing project details
+    svg_photo = Column(String, nullable=True)  # Path to candidate's SVG photo
 
 def init_db():
     """

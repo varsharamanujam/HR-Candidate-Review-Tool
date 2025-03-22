@@ -4,10 +4,10 @@
  * A comprehensive table component for displaying and managing candidate information.
  * Features include:
  * - Sortable columns for candidate data
- * - Filtering by status (via tabs) and by month-year
+ * - Filtering by status and date
  * - Detailed candidate profile view in a drawer
+ * - Application stage tracking
  * - PDF generation for candidate details
- * - Optional SVG photo display (if available)
  *
  * @requires React
  * @requires @chakra-ui/react
@@ -41,8 +41,9 @@ import {
   useDisclosure,
   Button,
   VStack,
+  Circle,
   Select,
-  Heading
+  Heading,
 } from "@chakra-ui/react";
 import {
   StarIcon,
@@ -51,7 +52,7 @@ import {
   AttachmentIcon,
   EmailIcon,
   PhoneIcon,
-  CheckIcon
+  CheckIcon,
 } from "@chakra-ui/icons";
 import { fetchCandidates, filterCandidates, getCandidate, generateCandidatePDF } from "../api";
 
@@ -83,7 +84,7 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
-    day: "numeric"
+    day: "numeric",
   });
 };
 
@@ -245,8 +246,8 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
   }
 
   return (
-    <Box bg="#1E1E1E" p={{ base: 4, md: 6 }} borderRadius="md">
-      {/* Header: Title and Month-Year filter */}
+    <Box bg="#1E1E1E" p={{ base: 4, md: 6 }} borderRadius="md" className="main-table-container">
+      {/* Header row with "Candidates" heading and Month-Year filter */}
       <Flex justify="space-between" align="center" mb={4}>
         <Heading size="lg" color="white">
           Candidates
@@ -306,7 +307,7 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
         </TabList>
       </Tabs>
 
-      {/* Table */}
+      {/* Table container */}
       <Box overflowX="auto" borderRadius="lg" minH="400px">
         <Table variant="unstyled" size="md">
           <Thead>
@@ -443,41 +444,352 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
       {/* Drawer for Candidate Details */}
       <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="md">
         <DrawerOverlay />
-        <DrawerContent bg="#1E1E1E">
+        <DrawerContent bg="#151515" className="drawer-content">
+          <style>
+            {`
+              @media print {
+  /* Force dark mode and color printing */
+  @page {
+    margin: 0.5in;
+    background-color: #151515;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    background: #151515 !important;
+    color: white !important;
+  }
+
+  /* Hide unnecessary elements */
+  .chakra-modal__overlay,
+  .chakra-modal__close-btn,
+  .action-buttons,
+  .carousel-container,
+  .main-table-container,
+  .chakra-button {
+    display: none !important;
+  }
+
+  /* Reset drawer positioning and ensure all content is visible */
+  .chakra-modal__content {
+    position: static !important;
+    transform: none !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    background: #151515 !important;
+    color: white !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .chakra-modal__body {
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  /* Critical fix: Ensure all sections are visible */
+  .print-container {
+    width: 100% !important;
+    padding: 2rem !important;
+    background: #151515 !important;
+    color: white !important;
+    page-break-inside: avoid !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* Force display of all sections */
+  .print-container > * {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+  }
+
+  /* Make sections full width and ensure they're visible */
+  .print-section {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 2rem !important;
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    page-break-after: auto !important;
+  }
+
+  /* Ensure experience and projects sections are visible */
+  .print-section:nth-of-type(3),  /* Experience section */
+  .print-section:nth-of-type(4) { /* Projects section */
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    page-break-before: auto !important;
+    page-break-after: auto !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Header styling */
+  .print-header {
+    text-align: center !important;
+    margin-bottom: 2rem !important;
+    padding-bottom: 1rem !important;
+    border-bottom: 2px solid #333 !important;
+    page-break-after: avoid !important;
+    display: block !important;
+  }
+
+  .print-header h2 {
+    font-size: 1.875rem !important;
+    font-weight: bold !important;
+    color: white !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .print-header p {
+    color: #898989 !important;
+  }
+
+  /* Section styling */
+  .print-section {
+    display: block !important;
+    visibility: visible !important;
+    background: #1A1A1A !important;
+    border-radius: 0.5rem !important;
+    padding: 1.5rem !important;
+    margin-bottom: 2rem !important;
+    page-break-inside: avoid !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Experience section specific */
+  .experience-item {
+    display: block !important;
+    visibility: visible !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Projects section specific */
+  .project-item {
+    display: block !important;
+    visibility: visible !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-section h2 {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    color: white !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Text styling */
+  .print-section .chakra-text {
+    color: white !important;
+  }
+
+  .print-section .chakra-text[color="gray.400"],
+  .print-section .chakra-text[color="gray.500"] {
+    color: #898989 !important;
+  }
+
+  /* Icons */
+  .chakra-icon {
+    color: currentColor !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Stage timeline */
+  .stage-timeline {
+    position: relative !important;
+    page-break-inside: avoid !important;
+  }
+
+  .stage-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    padding: 0.75rem 0 !important;
+  }
+
+  .stage-completed {
+    color: #22C55E !important;
+  }
+
+  .stage-completed .stage-marker {
+    background: #22C55E !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .stage-completed .stage-check {
+    display: block !important;
+    color: white !important;
+  }
+
+  .stage-current {
+    color: #FFB547 !important;
+  }
+
+  .stage-current .stage-marker {
+    background: #FFB547 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .stage-pending {
+    color: #898989 !important;
+  }
+
+  .stage-pending .stage-marker {
+    background: #333 !important;
+  }
+
+  /* Contact info */
+  .contact-info {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 3rem !important;
+    margin-bottom: 1.5rem !important;
+    page-break-inside: avoid !important;
+  }
+
+  .contact-info-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    color: #898989 !important;
+  }
+
+  /* Experience section */
+  .experience-item {
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+    border-bottom: 1px solid #333 !important;
+    page-break-inside: avoid !important;
+  }
+
+  .experience-item:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Projects section */
+  .project-item {
+    background: #262626 !important;
+    border-radius: 0.5rem !important;
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+    page-break-inside: avoid !important;
+  }
+
+  .project-item h3 {
+    color: white !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Images and Avatars */
+  img,
+  .chakra-avatar,
+  .chakra-avatar__img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* SVG specific styles */
+  svg {
+    color: currentColor !important;
+    fill: currentColor !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure all content is visible */
+  * {
+    overflow: visible !important;
+  }
+
+  /* Hide view project buttons in print */
+  .project-link-button,
+  .chakra-button {
+    display: none !important;
+  }
+
+  /* Force page breaks to occur at appropriate locations */
+  .print-section {
+    page-break-after: auto !important;
+  }
+
+  /* Ensure specific section transitions */
+  .print-section + .print-section {
+    page-break-before: auto !important;
+  }
+}
+            `}
+          </style>
           <DrawerCloseButton color="white" />
-          <DrawerHeader color="white">
-            {selectedCandidate ? selectedCandidate.name : "Candidate Details"}
-          </DrawerHeader>
+          <DrawerHeader color="white">Candidate Details</DrawerHeader>
           <DrawerBody>
             {selectedCandidate ? (
-              <Box color="white">
-                {/* Candidate Info */}
-                <Box w="full" maxW="md" bg="#1A1A1A" borderRadius="lg" py={3} px={4}>
-                  <VStack align="center" spacing={3}>
-                    {selectedCandidate.svg_photo ? (
-                      <Box boxSize="lg">
+              <Box
+                color="white"
+                className="print-container"
+                style={{
+                  display: 'block',
+                  visibility: 'visible',
+                  pageBreakInside: 'avoid',
+                  position: 'static',
+                  overflow: 'visible'
+                }}
+              >
+                {/* Profile Section */}
+                <Box w="full" bg="#1A1A1A" borderRadius="lg" py={3} px={4} className="print-section">
+                  <VStack align="center" spacing={3} w="full">
+                  {selectedCandidate.svg_photo ? (
+                      <Box boxSize="70px">
                         <img
                           src={selectedCandidate.svg_photo}
                           alt={selectedCandidate.name}
-                          style={{ width: "80px", height: "80px", borderRadius: "50%" }}
+                          style={{ width: "70px", height: "70px", borderRadius: "50%" }}
                         />
                       </Box>
                     ) : (
-                      <Avatar size="lg" name={selectedCandidate.name} />
+                      <Avatar size="sm" name={selectedCandidate.name} />
                     )}
                     <VStack spacing={1} mb={4}>
-                      <Heading size="md">{selectedCandidate.name}</Heading>
-                      <Text color="gray.500">{selectedCandidate.applied_role}</Text>
+                      <Text fontSize="large" fontWeight="bold">
+                        {selectedCandidate.name}
+                      </Text>
+                      <Text color="gray.500" fontSize="md">
+                        {selectedCandidate.applied_role}
+                      </Text>
                     </VStack>
-                    <Flex gap={12} justify="center">
+                    
+                    <Flex gap={12} justify="center" className="contact-info">
                       <Box>
                         <Flex gap={3}>
                           <Icon as={EmailIcon} color="gray.500" boxSize={5} />
                           <Box>
-                            <Text fontSize="xs" color="gray.500" letterSpacing="wide">
+                            <Text color="gray.500" fontSize="xs" letterSpacing="wide">
                               EMAIL
                             </Text>
-                            <Text fontSize="sm">{selectedCandidate.email}</Text>
+                            <Text color="white" fontSize="sm">
+                              {selectedCandidate.email}
+                            </Text>
                           </Box>
                         </Flex>
                       </Box>
@@ -485,10 +797,12 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                         <Flex gap={3}>
                           <Icon as={PhoneIcon} color="gray.500" boxSize={5} />
                           <Box>
-                            <Text fontSize="xs" color="gray.500" letterSpacing="wide">
-                              PHONE
+                            <Text color="gray.500" fontSize="xs" letterSpacing="wide">
+                              PHONE NUMBER
                             </Text>
-                            <Text fontSize="sm">{selectedCandidate.phone}</Text>
+                            <Text color="white" fontSize="sm">
+                              {selectedCandidate.phone}
+                            </Text>
                           </Box>
                         </Flex>
                       </Box>
@@ -496,20 +810,191 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                   </VStack>
                 </Box>
 
-                {/* Additional Candidate Details */}
-                <Box mt={4} p={4} bg="#1A1A1A" borderRadius="lg">
-                  <Text>Stage: {selectedCandidate.stage}</Text>
-                  <Text>Status: {selectedCandidate.status}</Text>
-                  <Text>Role: {selectedCandidate.applied_role}</Text>
-                  <Text>Rating: {selectedCandidate.rating}</Text>
-                  {/* Additional fields (experience, location, etc.) can be added here */}
+                {/* Application Details */}
+                <Box
+                  w="full"
+                  className="print-section"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  p={4}
+                  mt={4}
+                  mb={4}
+                >
+                  <Text fontSize="xl" fontWeight="semibold" mb={4}>
+                    Application Details
+                  </Text>
+                  <VStack spacing={0} align="stretch" position="relative">
+                    {/* Vertical line */}
+                    <Box
+                      position="absolute"
+                      left="15px"
+                      top="30px"
+                      bottom="30px"
+                      width="2px"
+                      bg="#333"
+                      zIndex={0}
+                    />
+                    {[
+                      { label: "Screening"},
+                      { label: "Design Challenge"},
+                      { label: "Interview" },
+                      { label: "HR Round" },
+                      { label: "Hired" }
+                    ].map((stage, idx) => {
+                      const currentStageIndex = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"].findIndex(
+                        (s) => s === selectedCandidate.stage
+                      );
+                      let status = "pending";
+                      if (idx < currentStageIndex) {
+                        status = "completed";
+                      } else if (idx === currentStageIndex) {
+                        status = "current";
+                      }
+
+                      return (
+                        <Flex key={stage.label} align="flex-start" gap={4} py={3} position="relative">
+                          <Circle
+                            size="8"
+                            bg={
+                              status === "completed"
+                                ? "green.500"
+                                : status === "current"
+                                ? "#FFB547"
+                                : "#333"
+                            }
+                            zIndex={1}
+                          >
+                            {status === "completed" ? (
+                              <CheckIcon color="white" boxSize={4} />
+                            ) : (
+                              <Text color="white" fontSize="sm">
+                                {idx + 1}
+                              </Text>
+                            )}
+                          </Circle>
+                          <Box flex="1">
+                            <Text fontSize="sm" color="white" mb={stage.date ? 1 : 0}>
+                              {stage.label}
+                            </Text>
+                            {stage.date && (
+                              <Text fontSize="xs" color="gray.400">
+                                {stage.date}
+                              </Text>
+                            )}
+                          </Box>
+                          {status === "current" && (
+                            <Box
+                              bg="#2A2A2A"
+                              px={3}
+                              py={1}
+                              borderRadius="full"
+                              alignSelf="center"
+                            >
+                              <Text fontSize="xs" color="#FFB547">
+                                Under Review
+                              </Text>
+                            </Box>
+                          )}
+                        </Flex>
+                      );
+                    })}
+                  </VStack>
+                </Box>
+
+                {/* Experience */}
+                {/* Experience */}
+                <Box w="full" bg="#1A1A1A" borderRadius="lg" p={6} mt={4} className="print-section experience-section">
+                  <Text fontSize="lg" fontWeight="semibold" mb={4}>
+                    Experience
+                  </Text>
+                  <VStack align="stretch" spacing={6}>
+                    {selectedCandidate.experience_details ?
+                      JSON.parse(selectedCandidate.experience_details).map((exp, index) => (
+                        <Box key={index} className="experience-item">
+                          <Flex align="center" gap={3} mb={2}>
+                            <Avatar size="sm" name={exp.company} />
+                            <Box>
+                              <Text fontWeight="medium" color="white">
+                                {exp.company}
+                              </Text>
+                              <Text fontSize="sm" color="gray.400">
+                                {exp.role}
+                              </Text>
+                              <Text fontSize="sm" color="gray.500">
+                                {exp.duration}
+                              </Text>
+                            </Box>
+                          </Flex>
+                          <Text fontSize="sm" color="gray.400" mt={2}>
+                            {exp.description}
+                          </Text>
+                        </Box>
+                      )) :
+                      <Text color="gray.500">No experience details available</Text>
+                    }
+                  </VStack>
+                </Box>
+                {/* Projects */}
+                <Box w="full" bg="#1A1A1A" borderRadius="lg" p={6} mt={4} mb={8} className="print-section projects-section">
+                  <Text fontSize="lg" fontWeight="semibold" mb={4}>
+                    Projects
+                  </Text>
+                  <VStack align="stretch" spacing={4}>
+                    {selectedCandidate.projects ?
+                      JSON.parse(selectedCandidate.projects).map((project, index) => (
+                        <Box key={index} className="project-item">
+                          <Text fontWeight="medium" color="white">
+                            {project.name}
+                          </Text>
+                          <Text fontSize="sm" color="gray.400" mt={1}>
+                            {project.description}
+                          </Text>
+                          <Button
+                            as="a"
+                            href={project.link}
+                            target="_blank"
+                            size="sm"
+                            variant="outline"
+                            colorScheme="purple"
+                            mt={2}
+                          >
+                            View Project
+                          </Button>
+                        </Box>
+                      )) :
+                      <Text color="gray.500">No projects available</Text>
+                    }
+                  </VStack>
                 </Box>
 
                 {/* Action Buttons */}
-                <Flex gap={3} mt={4}>
-                  <Button colorScheme="green">Move to Next Step</Button>
-                  <Button colorScheme="red">Reject</Button>
-                  <Button colorScheme="purple" isLoading={pdfLoading} onClick={handleGeneratePDF}>
+                <Flex gap={3} className="action-buttons print-hide">
+                  <Button
+                    flex="1"
+                    bgGradient="linear(to-r, #6E38E0, #FF5F36)"
+                    color="white"
+                    _hover={{ opacity: 0.9 }}
+                    borderRadius="none"
+                    rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
+                  >
+                    Move to Next Step
+                  </Button>
+                  <Button
+                    bgGradient="linear(to-r, #38E0AE, #AF36FF)"
+                    color="white"
+                    _hover={{ opacity: 0.9 }}
+                    borderRadius="none"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    bgGradient="linear(to-r, #E03838, #FFA836)"
+                    color="white"
+                    _hover={{ opacity: 0.9 }}
+                    borderRadius="none"
+                    isLoading={pdfLoading}
+                    onClick={handleGeneratePDF}
+                  >
                     PDF
                   </Button>
                 </Flex>
@@ -527,3 +1012,4 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
 };
 
 export default CandidateTable;
+
