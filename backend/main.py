@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import SessionLocal, Candidate, init_db
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Union
+from typing import List, Optional
 from datetime import datetime, timedelta
 import json
 import io
@@ -51,16 +51,8 @@ def get_db():
     """
     Dependency to get database session.
 
-    Creates a new database session for each request and ensures it's closed
-    after the request is completed.
-
     Yields:
         Session: SQLAlchemy database session
-
-    Example:
-        @app.get("/endpoint")
-        def endpoint(db: Session = Depends(get_db)):
-            return db.query(Model).all()
     """
     db = SessionLocal()
     try:
@@ -86,11 +78,11 @@ class CandidateResponse(BaseModel):
     attachments: int
     application_date: datetime
     basic_info: Optional[str]
-    skills: Optional[str]  # JSON string storing skills
-    education: Optional[str]  # JSON string storing education details
-    experience_details: Optional[str]  # JSON string storing detailed experience
-    projects: Optional[str]  # JSON string storing project details
-    svg_photo: Optional[str]  # Path to candidate's SVG photo
+    skills: Optional[str]  
+    education: Optional[str]
+    experience_details: Optional[str] 
+    projects: Optional[str]
+    svg_photo: Optional[str]
 
     class Config:
         from_attributes = True
@@ -98,25 +90,6 @@ class CandidateResponse(BaseModel):
 class CandidateCreate(BaseModel):
     """
     Pydantic model for creating a new candidate.
-
-    Attributes:
-        name (str): Full name of the candidate
-        email (str): Email address
-        phone (str): Contact phone number
-        applied_role (str): Position applied for
-        experience (str): Years of experience
-        status (str): Application status, defaults to "Pending"
-        resume_url (Optional[str]): URL to resume file
-        rating (float): Candidate rating, defaults to 0.0
-        stage (str): Interview stage, defaults to "Screening"
-        location (Optional[str]): Candidate's location
-        attachments (int): Number of attachments
-        basic_info (Optional[str]): Basic information about the candidate
-        skills (Optional[str]): JSON string storing skills
-        education (Optional[str]): JSON string storing education details
-        experience_details (Optional[str]): JSON string storing detailed experience
-        projects (Optional[str]): JSON string storing project details
-        svg_photo (Optional[str]): Path to candidate's SVG photo
     """
     name: str
     email: str
@@ -139,11 +112,6 @@ class CandidateCreate(BaseModel):
 class CandidateUpdate(BaseModel):
     """
     Pydantic model for updating candidate information.
-
-    Attributes:
-        status (Optional[str]): New application status
-        stage (Optional[str]): New interview stage
-        rating (Optional[float]): Updated rating
     """
     status: Optional[str] = None
     stage: Optional[str] = None
@@ -153,16 +121,6 @@ class CandidateUpdate(BaseModel):
 def get_candidates(db: Session = Depends(get_db)):
     """
     Retrieve all candidates from the database.
-
-    Args:
-        db (Session): Database session dependency
-
-    Returns:
-        List[CandidateResponse]: List of all candidates
-
-    Example:
-        response = await client.get("/candidates/")
-        candidates = response.json()
     """
     return db.query(Candidate).all()
 
@@ -178,23 +136,7 @@ def filter_candidates(
 ) -> List[CandidateResponse]:
     """
     Filter and sort candidates based on various criteria.
-
-    Args:
-        db (Session): Database session
-        role (Optional[str]): Filter by applied role
-        status (Optional[str]): Filter by status (must be in STATUSES)
-        stage (Optional[str]): Filter by stage (must be in STAGES)
-        search (Optional[str]): Search in name, email, and role
-        sort_by (str): Field to sort by (must be in SORT_FIELDS)
-        month_year (Optional[str]): Filter by month and year (format: YYYY-MM)
-
-    Returns:
-        List[CandidateResponse]: List of filtered candidates
-
-    Raises:
-        HTTPException: If invalid status, stage, or sort field is provided
     """
-    # Validate inputs
     if status and status not in STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {STATUSES}")
     if stage and stage not in STAGES:
@@ -204,7 +146,6 @@ def filter_candidates(
 
     query = db.query(Candidate)
     
-    # Apply filters
     if role:
         query = query.filter(Candidate.applied_role == role)
     if status:
@@ -219,7 +160,6 @@ def filter_candidates(
             Candidate.applied_role.ilike(search_term)
         )
     
-    # Handle month_year filter
     if month_year:
         try:
             year, month = map(int, month_year.split("-"))
@@ -242,7 +182,6 @@ def filter_candidates(
                 detail=f"Invalid month_year format. Must be YYYY-MM: {str(e)}"
             )
     
-    # Apply sorting
     query = query.order_by(
         {
             "name": Candidate.name,
@@ -257,23 +196,11 @@ def filter_candidates(
 def import_candidates(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
     Import candidates from a JSON file.
-
-    Args:
-        file (UploadFile): JSON file containing candidate data
-        db (Session): Database session dependency
-
-    Returns:
-        dict: Success message
-
-    Example:
-        files = {'file': ('candidates.json', open('candidates.json', 'rb'))}
-        response = await client.post("/candidates/import/", files=files)
     """
     contents = file.file.read()
     candidates_data = json.loads(contents.decode("utf-8"))
 
     for candidate_data in candidates_data:
-        # Collect all URLs from the candidate data
         urls = {}
         if "resume_url" in candidate_data:
             urls["resume"] = candidate_data["resume_url"]
@@ -282,7 +209,6 @@ def import_candidates(file: UploadFile = File(...), db: Session = Depends(get_db
         if "project_url" in candidate_data:
             urls["project"] = candidate_data["project_url"]
         
-        # Count number of URLs as attachments
         num_attachments = len(urls)
         
         candidate = Candidate(
@@ -306,21 +232,6 @@ def import_candidates(file: UploadFile = File(...), db: Session = Depends(get_db
 def update_status(candidate_id: int, update: CandidateUpdate, db: Session = Depends(get_db)):
     """
     Update candidate status, stage, or rating.
-
-    Args:
-        candidate_id (int): ID of the candidate to update
-        update (CandidateUpdate): Update data
-        db (Session): Database session dependency
-
-    Returns:
-        Candidate: Updated candidate information
-
-    Raises:
-        HTTPException: If candidate is not found
-
-    Example:
-        data = {"status": "Selected", "stage": "Hired"}
-        response = await client.patch("/candidates/1/status/", json=data)
     """
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not candidate:
@@ -341,134 +252,157 @@ def update_status(candidate_id: int, update: CandidateUpdate, db: Session = Depe
 def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
     """
     Generate a PDF document with candidate details.
-
-    Args:
-        candidate_id (int): ID of the candidate
-        db (Session): Database session dependency
-
-    Returns:
-        Response: PDF file as a downloadable attachment
-
-    Raises:
-        HTTPException: If candidate is not found or PDF generation fails
     """
     try:
         candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
         if not candidate:
             raise HTTPException(status_code=404, detail="Candidate not found")
 
-        # Parse URLs from JSON string with error handling
         try:
             urls = json.loads(candidate.urls) if candidate.urls else {}
         except json.JSONDecodeError:
             urls = {}
-            print(f"Warning: Invalid JSON in URLs for candidate {candidate_id}")
 
-        # CSS styles for better PDF formatting
+        # Updated CSS for a modern, evenly spaced dark theme
         css_styles = """
             <style>
                 body {
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
+                    background: #151515;
+                    color: #f0f0f0;
+                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                    margin: 0;
+                    padding: 40px;
+                }
+                .container {
                     max-width: 800px;
                     margin: 0 auto;
-                    padding: 20px;
+                    background: #1E1E1E;
+                    border-radius: 10px;
+                    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+                    padding: 30px;
                 }
-                h1 {
-                    color: #6E38E0;
-                    border-bottom: 2px solid #6E38E0;
-                    padding-bottom: 10px;
+                .profile-section {
+                    text-align: center;
+                    padding: 20px;
                     margin-bottom: 30px;
                 }
-                h2 {
-                    color: #555;
-                    margin-top: 25px;
+                .profile-section img {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                    margin-bottom: 10px;
+                }
+                .profile-section h1 {
+                    margin: 0;
+                    font-size: 2rem;
+                    margin-bottom: 5px;
+                }
+                .profile-section h2 {
+                    margin: 0;
+                    font-size: 1.2rem;
+                    color: #aaa;
+                }
+                .contact-info {
+                    display: flex;
+                    justify-content: center;
+                    gap: 40px;
+                    margin-top: 20px;
+                }
+                .contact-info div {
+                    text-align: center;
+                }
+                .contact-info .label {
+                    font-size: 0.8rem;
+                    color: #bbb;
+                    margin-bottom: 5px;
+                }
+                .contact-info .value {
+                    font-size: 1rem;
+                }
+                .section {
+                    background: #252525;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }
+                .section h2 {
+                    margin-top: 0;
+                    font-size: 1.4rem;
+                    border-bottom: 1px solid #444;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
                 }
                 .info-grid {
                     display: grid;
-                    grid-template-columns: repeat(2, 1fr);
+                    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
                     gap: 20px;
-                    margin-bottom: 30px;
                 }
                 .info-item {
-                    padding: 10px;
-                    background: #f8f8f8;
+                    background: #2a2a2a;
                     border-radius: 5px;
+                    padding: 15px;
                 }
-                .label {
+                .info-item .label {
                     font-weight: bold;
-                    color: #666;
-                    margin-bottom: 5px;
+                    font-size: 0.9rem;
+                    color: #aaa;
+                    margin-bottom: 8px;
                 }
-                .value {
-                    color: #333;
-                }
-                .status {
-                    display: inline-block;
-                    padding: 5px 10px;
-                    border-radius: 15px;
-                    background: #6E38E0;
-                    color: white;
-                }
-                .attachments {
-                    margin-top: 30px;
-                    padding: 20px;
-                    background: #f8f8f8;
-                    border-radius: 5px;
+                .info-item .value {
+                    font-size: 1rem;
+                    color: #f0f0f0;
                 }
                 a {
                     color: #6E38E0;
                     text-decoration: none;
                 }
+                .contact-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px; /* Adjust spacing between items as needed */
+  margin-top: 20px;
+}
+
+.contact-item {
+  text-align: center;
+}
+
+.contact-item .label {
+  font-size: 0.9rem;
+  color: #bbb;
+  margin-bottom: 5px;
+}
+
+.contact-item .value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #f0f0f0;
+}
+
             </style>
         """
-
-        # Create URL section HTML with better structure
-        url_section = ""
-        if urls:
-            url_items = []
-            for url_type, url in urls.items():
-                safe_url = url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                url_items.append(f"""
-                    <div class="info-item">
-                        <div class="label">{url_type.title()}</div>
-                        <div class="value"><a href="{safe_url}">{safe_url}</a></div>
-                    </div>
-                """)
-            if url_items:
-                url_section = f"""
-                    <div class="attachments">
-                        <h2>Attachments</h2>
-                        <div class="info-grid">
-                            {"".join(url_items)}
-                        </div>
-                    </div>
-                """
-
-        # Parse additional JSON fields
+        # Skills Section
+        skills_section = ""
         try:
             skills = json.loads(candidate.skills) if candidate.skills else []
-            education = json.loads(candidate.education) if candidate.education else []
-            experience_details = json.loads(candidate.experience_details) if candidate.experience_details else []
-            projects = json.loads(candidate.projects) if candidate.projects else []
         except json.JSONDecodeError:
-            skills, education, experience_details, projects = [], [], [], []
-
-        # Create sections for additional details
-        skills_section = ""
+            skills = []
         if skills:
-            skills_html = ", ".join(skills)
             skills_section = f"""
                 <div class="section">
                     <h2>Skills</h2>
-                    <div class="info-item">
-                        <div class="value">{skills_html}</div>
-                    </div>
+                    <div class="value">{", ".join(skills)}</div>
                 </div>
             """
 
+        # Education Section
         education_section = ""
+        try:
+            education = json.loads(candidate.education) if candidate.education else []
+        except json.JSONDecodeError:
+            education = []
         if education:
             edu_items = []
             for edu in education:
@@ -477,7 +411,7 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                         <div class="value">
                             <strong>{edu.get('degree', '')}</strong><br>
                             {edu.get('institution', '')}<br>
-                            Year of Completion: {edu.get('year_of_completion', '')}
+                            Year: {edu.get('year_of_completion', '')}
                         </div>
                     </div>
                 """)
@@ -490,7 +424,12 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                 </div>
             """
 
+        # Experience Section
         experience_section = ""
+        try:
+            experience_details = json.loads(candidate.experience_details) if candidate.experience_details else []
+        except json.JSONDecodeError:
+            experience_details = []
         if experience_details:
             exp_items = []
             for exp in experience_details:
@@ -500,7 +439,7 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                             <strong>{exp.get('company', '')}</strong><br>
                             Role: {exp.get('role', '')}<br>
                             Duration: {exp.get('duration', '')}<br>
-                            <p>{exp.get('description', '')}</p>
+                            {exp.get('description', '')}
                         </div>
                     </div>
                 """)
@@ -513,7 +452,12 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                 </div>
             """
 
+        # Projects Section
         projects_section = ""
+        try:
+            projects = json.loads(candidate.projects) if candidate.projects else []
+        except json.JSONDecodeError:
+            projects = []
         if projects:
             proj_items = []
             for proj in projects:
@@ -521,7 +465,7 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                     <div class="info-item">
                         <div class="value">
                             <strong>{proj.get('name', '')}</strong><br>
-                            <p>{proj.get('description', '')}</p>
+                            {proj.get('description', '')}<br>
                             <a href="{proj.get('link', '#')}" target="_blank">Project Link</a>
                         </div>
                     </div>
@@ -535,76 +479,93 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
                 </div>
             """
 
-        # Create PDF content with improved layout
+        # URL/Attachments Section
+        url_section = ""
+        if urls:
+            url_items = []
+            for url_type, url in urls.items():
+                safe_url = url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                url_items.append(f"""
+                    <div class="info-item">
+                        <div class="label">{url_type.title()}</div>
+                        <div class="value"><a href="{safe_url}" target="_blank">{safe_url}</a></div>
+                    </div>
+                """)
+            url_section = f"""
+                <div class="section">
+                    <h2>Attachments</h2>
+                    <div class="info-grid">
+                        {"".join(url_items)}
+                    </div>
+                </div>
+            """
+
+        # Build the complete HTML content to mimic the drawer layout
         html_content = f"""
         <html>
             <head>
                 <meta charset="UTF-8">
                 {css_styles}
-                <style>
-                    .section {{
-                        margin-top: 30px;
-                        padding: 20px;
-                        background: #f8f8f8;
-                        border-radius: 5px;
-                    }}
-                </style>
             </head>
             <body>
-                <h1>Candidate Details</h1>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="label">Name</div>
-                        <div class="value">{candidate.name}</div>
+                <div class="container">
+                    <!-- Profile Section -->
+                    <div class="profile-section">
+                        <h1>{candidate.name}</h1>
+                        <h2>{candidate.applied_role}</h2>
+                        <div class="contact-info">
+  <div class="contact-item">
+    <div class="label">EMAIL</div>
+    <div class="value">{candidate.email}</div>
+  </div>
+  <div class="contact-item">
+    <div class="label">PHONE</div>
+    <div class="value">{candidate.phone}</div>
+  </div>
+</div>
+
                     </div>
-                    <div class="info-item">
-                        <div class="label">Email</div>
-                        <div class="value">{candidate.email}</div>
+                    <!-- Application Details Section -->
+                    <div class="section">
+                        <h2>Application Details</h2>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="label">Status</div>
+                                <div class="value">{candidate.status}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Stage</div>
+                                <div class="value">{candidate.stage}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Rating</div>
+                                <div class="value">{candidate.rating} / 5.0</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Application Date</div>
+                                <div class="value">{candidate.application_date.strftime('%B %d, %Y')}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Location</div>
+                                <div class="value">{candidate.location or "Not specified"}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Applied Role</div>
+                                <div class="value">{candidate.applied_role}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="info-item">
-                        <div class="label">Phone</div>
-                        <div class="value">{candidate.phone}</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Applied Role</div>
-                        <div class="value">{candidate.applied_role}</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Experience</div>
-                        <div class="value">{candidate.experience}</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Status</div>
-                        <div class="value"><span class="status">{candidate.status}</span></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Current Stage</div>
-                        <div class="value">{candidate.stage}</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Rating</div>
-                        <div class="value">{candidate.rating} / 5.0</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Location</div>
-                        <div class="value">{candidate.location or "Not specified"}</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">Application Date</div>
-                        <div class="value">{candidate.application_date.strftime('%B %d, %Y')}</div>
-                    </div>
-                </div>
-                <div class="section">
-                    <h2>Basic Information</h2>
-                    <div class="info-item">
+                    <!-- Basic Information Section -->
+                    <div class="section">
+                        <h2>Basic Information</h2>
                         <div class="value">{candidate.basic_info or "Not provided"}</div>
                     </div>
+                    {skills_section}
+                    {education_section}
+                    {experience_section}
+                    {projects_section}
+                    {url_section}
                 </div>
-                {skills_section}
-                {education_section}
-                {experience_section}
-                {projects_section}
-                {url_section}
             </body>
         </html>
         """
@@ -638,13 +599,6 @@ def generate_pdf(candidate_id: int, db: Session = Depends(get_db)) -> Response:
 def search_candidates(query: str, db: Session = Depends(get_db)):
     """
     Search for candidates using a keyword across multiple candidate fields.
-    
-    Args:
-        query (str): The search keyword.
-        db (Session): Database session dependency.
-
-    Returns:
-        List[CandidateResponse]: List of matching candidates.
     """
     search_term = f"%{query}%"
     candidates = db.query(Candidate).filter(
@@ -660,37 +614,20 @@ def search_candidates(query: str, db: Session = Depends(get_db)):
     return candidates
 
 @app.get("/candidates/{candidate_id}/")
-
 def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
     """
     Retrieve a specific candidate by ID.
-
-    Args:
-        candidate_id (int): ID of the candidate to retrieve
-        db (Session): Database session dependency
-
-    Returns:
-        Candidate: Candidate information
-
-    Raises:
-        HTTPException: If candidate is not found
-
-    Example:
-        response = await client.get("/candidates/1/")
-        candidate = response.json()
     """
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     return candidate
 
-
 @app.post("/seed/")
 def seed_data(db: Session = Depends(get_db)):
     """
-    Seed the database with sample data for development purposes, including extended resume fields.
+    Seed the database with sample data for development purposes.
     """
-    # Clear existing data
     db.query(Candidate).delete()
     
     candidates = [
@@ -724,153 +661,6 @@ def seed_data(db: Session = Depends(get_db)):
                 {"name": "Mobile Banking Redesign", "description": "Overhauled UI/UX for a major bank's mobile app, reducing drop-off rates by 30%.", "link": "https://example.com/projects/mobile-banking"}
             ])
         ),
-        Candidate(
-            name="Malaika Brown",
-            email="malaika.b@example.com",
-            phone="+9876543210",
-            applied_role="Growth Manager",
-            experience="3 years",
-            status="In Process",
-            stage="Screening",
-            rating=3.5,
-            location="Remote",
-            application_date=datetime.now() - timedelta(days=20),
-            urls=json.dumps({
-                "resume": "https://example.com/resume/malaika.pdf"
-            }),
-            attachments=1,
-            basic_info="Enthusiastic growth marketer focused on user acquisition.",
-            skills=json.dumps(["Growth Hacking", "A/B Testing", "Marketing Automation", "SEO"]),
-            education=json.dumps([
-                {"degree": "BBA in Marketing", "institution": "Stanford University", "year_of_completion": 2022}
-            ]),
-            experience_details=json.dumps([
-                {"company": "StartUp Co.", "role": "Growth Specialist", "duration": "2022 - Present", "description": "Increased user sign-ups by 40% through targeted campaigns."}
-            ]),
-            projects=json.dumps([
-                {"name": "Referral Program Launch", "description": "Implemented a referral system that drove a 25% increase in new users.", "link": "https://example.com/projects/referral-launch"}
-            ]),
-            svg_photo="backend/test_files/malaikabrown.svg"
-        ),
-        Candidate(
-            name="Simon Minter",
-            email="simon.m@example.com",
-            phone="+1122334455",
-            applied_role="Financial Analyst",
-            experience="4 years",
-            status="In Process",
-            stage="Design Challenge",
-            rating=2.8,
-            location="Mumbai",
-            application_date=datetime.now() - timedelta(days=80),
-            urls=json.dumps({
-                "resume": "https://example.com/resume/simon.pdf",
-                "project": "https://example.com/projects/simon"
-            }),
-            attachments=2,
-            basic_info="Detail-oriented analyst with strong data visualization skills.",
-            skills=json.dumps(["Excel Modeling", "Power BI", "Financial Forecasting", "Data Visualization"]),
-            education=json.dumps([
-                {"degree": "B.Com in Finance", "institution": "University of Mumbai", "year_of_completion": 2020}
-            ]),
-            experience_details=json.dumps([
-                {"company": "Invest Corp", "role": "Junior Analyst", "duration": "2020 - 2022", "description": "Assisted in portfolio management."},
-                {"company": "Market Insights Ltd", "role": "Financial Analyst", "duration": "2022 - Present", "description": "Developing financial models."}
-            ]),
-            projects=json.dumps([
-                {"name": "Risk Analysis Dashboard", "description": "Created an interactive dashboard to track market risks.", "link": "https://example.com/projects/risk-dashboard"}
-            ]),
-            svg_photo="backend/test_files/simon.svg"
-        ),
-        Candidate(
-            name="Ashley Brooke",
-            email="ashley.b@example.com",
-            phone="+5566778899",
-            applied_role="Financial Analyst",
-            experience="6 years",
-            status="In Process",
-            stage="HR Round",
-            rating=4.5,
-            location="Mumbai",
-            application_date=datetime.now() - timedelta(days=15),
-            urls=json.dumps({
-                "resume": "https://example.com/resume/ashley.pdf",
-                "cover_letter": "https://example.com/cover/ashley.pdf",
-                "project": "https://example.com/portfolio/ashley"
-            }),
-            attachments=3,
-            basic_info="Passionate about leveraging data to drive strategic financial decisions.",
-            skills=json.dumps(["Financial Modeling", "Risk Management", "SQL", "Tableau"]),
-            education=json.dumps([
-                {"degree": "MBA in Finance", "institution": "IIM Ahmedabad", "year_of_completion": 2019}
-            ]),
-            experience_details=json.dumps([
-                {"company": "Global Finance Solutions", "role": "Finance Associate", "duration": "2019 - 2021", "description": "Handled forecasting for international transactions."},
-                {"company": "Prestige Analytics", "role": "Senior Financial Analyst", "duration": "2021 - Present", "description": "Leading a team to analyze complex financial instruments."}
-            ]),
-            projects=json.dumps([
-                {"name": "Investment Portfolio Optimization", "description": "Managed a portfolio of investments and optimized returns.", "link": "https://example.com/projects/investment-portfolio"}
-            ]),
-            svg_photo="backend/test_files/ashley.svg"
-        ),
-        Candidate(
-            name="Nishant Talwar",
-            email="nishant.t@example.com",
-            phone="+1098765432",
-            applied_role="Sr. UX Designer",
-            experience="7 years",
-            status="In Process",
-            stage="Round 2 Interview",
-            rating=5.0,
-            location="Bengaluru",
-            application_date=datetime.now() - timedelta(days=100),
-            urls=json.dumps({
-                "resume": "https://example.com/resume/nishant.pdf",
-                "project": "https://example.com/portfolio/nishant"
-            }),
-            attachments=2,
-            basic_info="Expert in creating intuitive user experiences with a deep understanding of design systems.",
-            skills=json.dumps(["Adobe XD", "Wireframing", "User Interviews", "Design Systems"]),
-            education=json.dumps([
-                {"degree": "B.Tech in Computer Science", "institution": "IIT Delhi", "year_of_completion": 2016}
-            ]),
-            experience_details=json.dumps([
-                {"company": "Alpha Tech", "role": "UI/UX Designer", "duration": "2016 - 2019", "description": "Developed user flows and wireframes for SaaS platforms."},
-                {"company": "Designify Inc", "role": "Sr. UX Designer", "duration": "2019 - Present", "description": "Mentored junior designers and led design sprints."}
-            ]),
-            projects=json.dumps([
-                {"name": "E-Commerce Redesign", "description": "Led a complete revamp of an e-commerce site, improving conversions by 35%.", "link": "https://example.com/projects/ecommerce-redesign"}
-            ]),
-            svg_photo="backend/test_files/nishant.svg"
-        ),
-        Candidate(
-            name="Mark Jacobs",
-            email="mark.j@example.com",
-            phone="+2233445566",
-            applied_role="Growth Manager",
-            experience="2 years",
-            status="Rejected",
-            stage="Rejected",
-            rating=2.0,
-            location="Remote",
-            application_date=datetime.now() - timedelta(days=25),
-            urls=json.dumps({
-                "resume": "https://example.com/resume/mark.pdf"
-            }),
-            attachments=1,
-            basic_info="Ambitious marketer with experience in early-stage startups.",
-            skills=json.dumps(["Content Marketing", "Email Campaigns", "Market Research"]),
-            education=json.dumps([
-                {"degree": "BA in Marketing", "institution": "Harvard University", "year_of_completion": 2021}
-            ]),
-            experience_details=json.dumps([
-                {"company": "NewWave Startup", "role": "Growth Associate", "duration": "2021 - 2022", "description": "Focused on email and social media strategies."}
-            ]),
-            projects=json.dumps([
-                {"name": "Social Media Influencer Campaign", "description": "Collaborated with influencers to boost brand visibility.", "link": "https://example.com/projects/social-influencer"}
-            ]),
-            svg_photo="backend/test_files/mark.svg"
-        )
     ]
     
     for candidate in candidates:

@@ -24,15 +24,11 @@ import {
   BellIcon,
   HamburgerIcon,
 } from "@chakra-ui/icons";
-import { fetchCandidates, searchCandidates } from "./api"; // ensure searchCandidates is implemented in your API file
+import { fetchCandidates, searchCandidates } from "./api"; 
 import Sidebar from "./components/sidebar";
 import CandidateTable from "./components/candidateTable";
 import Carousel from "./components/Carousel";
 
-/** 
- * Generate an array of month-year options for the last 2 years, 
- * plus the current year up to the current month.
- */
 function generateMonthOptions() {
   const options = [];
   const currentDate = new Date();
@@ -108,13 +104,6 @@ function App() {
         setLoading(false);
       }
     }
-  };
-
-  // Handler for month-year filter (if needed)
-  const handleMonthYearChange = (e) => {
-    const newValue = e.target.value;
-    setMonthYearFilter(newValue);
-    // Implement additional filtering logic if required
   };
 
   return (
