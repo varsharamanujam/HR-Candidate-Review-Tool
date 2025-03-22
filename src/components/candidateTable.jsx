@@ -55,7 +55,11 @@ import {
   CheckIcon,
   ArrowForwardIcon,
 } from "@chakra-ui/icons";
-import { fetchCandidates, filterCandidates, generateCandidatePDF } from "../api";
+import {
+  fetchCandidates,
+  filterCandidates,
+  generateCandidatePDF,
+} from "../api";
 
 // Utility: Generate options for the last 12 months
 function generateMonthOptions() {
@@ -70,8 +74,13 @@ function generateMonthOptions() {
       month += 12;
       year -= 1;
     }
-    const monthName = new Date(year, month).toLocaleString("default", { month: "long" });
-    options.push({ value: `${year}-${String(month + 1).padStart(2, "0")}`, label: `${monthName} ${year}` });
+    const monthName = new Date(year, month).toLocaleString("default", {
+      month: "long",
+    });
+    options.push({
+      value: `${year}-${String(month + 1).padStart(2, "0")}`,
+      label: `${monthName} ${year}`,
+    });
   }
   return options;
 }
@@ -81,7 +90,11 @@ const monthOptions = generateMonthOptions();
 // Utility: Format a date string
 function formatDate(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
@@ -166,8 +179,11 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
         let comparison = 0;
         if (sortField === "name") comparison = a.name.localeCompare(b.name);
         else if (sortField === "rating") comparison = a.rating - b.rating;
-        else if (sortField === "stage") comparison = a.stage.localeCompare(b.stage);
-        else if (sortField === "application_date") comparison = new Date(a.application_date) - new Date(b.application_date);
+        else if (sortField === "stage")
+          comparison = a.stage.localeCompare(b.stage);
+        else if (sortField === "application_date")
+          comparison =
+            new Date(a.application_date) - new Date(b.application_date);
         return sortDirection === "asc" ? comparison : -comparison;
       });
     }
@@ -185,8 +201,18 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
 
   const SortIndicator = ({ field }) => {
     const isActive = sortField === field;
-    const icon = isActive && sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon;
-    return <Icon as={icon} w={3} h={3} ml={1} color="purple.400" opacity={isActive ? 1 : 0.3} />;
+    const icon =
+      isActive && sortDirection === "asc" ? ArrowUpIcon : ArrowDownIcon;
+    return (
+      <Icon
+        as={icon}
+        w={3}
+        h={3}
+        ml={1}
+        color="purple.400"
+        opacity={isActive ? 1 : 0.3}
+      />
+    );
   };
 
   // Open drawer when a row is clicked
@@ -228,10 +254,17 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
   }
 
   return (
-    <Box bg="#1E1E1E" p={{ base: 4, md: 6 }} borderRadius="md" className="main-table-container">
+    <Box
+      bg="#1E1E1E"
+      p={{ base: 4, md: 6 }}
+      borderRadius="md"
+      className="main-table-container"
+    >
       {/* Header: Title and Month Filter */}
       <Flex justify="space-between" align="center" mb={4}>
-        <Heading size="lg" color="white">Candidates</Heading>
+        <Heading size="lg" color="white">
+          Candidates
+        </Heading>
         <Select
           placeholder="Select Month"
           size="sm"
@@ -247,7 +280,11 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
           onChange={handleMonthYearChange}
         >
           {monthOptions.map((opt) => (
-            <option key={opt.value} value={opt.value} style={{ backgroundColor: "#1E1E1E", color: "#fff" }}>
+            <option
+              key={opt.value}
+              value={opt.value}
+              style={{ backgroundColor: "#1E1E1E", color: "#fff" }}
+            >
               {opt.label}
             </option>
           ))}
@@ -255,7 +292,13 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
       </Flex>
 
       {/* Tabs for All, Accepted, Rejected */}
-      <Tabs index={tabIndex} onChange={handleTabsChange} color="white" variant="unstyled" mb={4}>
+      <Tabs
+        index={tabIndex}
+        onChange={handleTabsChange}
+        color="white"
+        variant="unstyled"
+        mb={4}
+      >
         <TabList>
           {["All", "Accepted", "Rejected"].map((label, idx) => (
             <Tab
@@ -288,31 +331,75 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
         <Table variant="unstyled" size="md">
           <Thead>
             <Tr bg="#262626" borderTopRadius="lg">
-              <Th color="#898989" fontSize="xs" py={3} borderTopLeftRadius="lg" textTransform="none" textAlign="center">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                borderTopLeftRadius="lg"
+                textTransform="none"
+                textAlign="center"
+              >
                 Candidate Name
               </Th>
-              <Th color="#898989" fontSize="xs" py={3} textTransform="none" cursor="pointer" onClick={() => handleSort("rating")} textAlign="center">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                textTransform="none"
+                cursor="pointer"
+                onClick={() => handleSort("rating")}
+                textAlign="center"
+              >
                 <Flex align="center" justify="center">
                   Rating
                   <SortIndicator field="rating" />
                 </Flex>
               </Th>
-              <Th color="#898989" fontSize="xs" py={3} textTransform="none" cursor="pointer" onClick={() => handleSort("stage")} textAlign="center">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                textTransform="none"
+                cursor="pointer"
+                onClick={() => handleSort("stage")}
+                textAlign="center"
+              >
                 <Flex align="center" justify="center">
                   Stages
                   <SortIndicator field="stage" />
                 </Flex>
               </Th>
-              <Th color="#898989" fontSize="xs" py={3} textTransform="none" textAlign="center">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                textTransform="none"
+                textAlign="center"
+              >
                 Applied Role
               </Th>
-              <Th color="#898989" fontSize="xs" py={3} textTransform="none" cursor="pointer" onClick={() => handleSort("application_date")} textAlign="center">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                textTransform="none"
+                cursor="pointer"
+                onClick={() => handleSort("application_date")}
+                textAlign="center"
+              >
                 <Flex align="center" justify="center">
                   Application Date
                   <SortIndicator field="application_date" />
                 </Flex>
               </Th>
-              <Th color="#898989" fontSize="xs" py={3} textTransform="none" textAlign="center" borderBottomRightRadius="lg">
+              <Th
+                color="#898989"
+                fontSize="xs"
+                py={3}
+                textTransform="none"
+                textAlign="center"
+                borderBottomRightRadius="lg"
+              >
                 Attachments
               </Th>
             </Tr>
@@ -333,7 +420,8 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                   bottom: 0,
                   height: "1px",
                   backgroundColor: "#333",
-                  display: index !== sortedCandidates.length - 1 ? "block" : "none",
+                  display:
+                    index !== sortedCandidates.length - 1 ? "block" : "none",
                 }}
               >
                 <Td pt={3} pb={3} textAlign="center">
@@ -343,7 +431,11 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                         <img
                           src={candidate.svg_photo}
                           alt={candidate.name}
-                          style={{ width: "40px", height: "40px", borderRadius: "50%" }}
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                          }}
                         />
                       </Box>
                     ) : (
@@ -365,7 +457,9 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                   <Text color="white">{candidate.applied_role}</Text>
                 </Td>
                 <Td pt={3} pb={3} textAlign="center">
-                  <Text color="white">{formatDate(candidate.application_date)}</Text>
+                  <Text color="white">
+                    {formatDate(candidate.application_date)}
+                  </Text>
                 </Td>
                 <Td pt={3} pb={3} textAlign="center">
                   <Flex align="center" justify="center">
@@ -391,6 +485,8 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
                 color-adjust: exact !important;
+                height:150% !important;
+                overflow:visible;
               }
               body {
                 -webkit-print-color-adjust: exact !important;
@@ -398,6 +494,7 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                 color-adjust: exact !important;
                 background: #151515 !important;
                 color: white !important;
+                overflow: initial !important;
               }
               /* Hide only the overlay and close button */
               .chakra-modal__overlay,
@@ -455,32 +552,57 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
           <DrawerHeader color="white">Candidate Details</DrawerHeader>
           <DrawerBody>
             {selectedCandidate ? (
-              <Box color="white" className="print-container" style={{ position: "static", overflow: "visible" }}>
+              <Box
+                color="white"
+                className="print-container"
+                style={{ position: "static", overflow: "visible" }}
+              >
                 {/* Profile Section */}
-                <Box w="full" bg="#1A1A1A" borderRadius="lg" py={3} px={4} className="print-section">
+                <Box
+                  w="full"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  py={3}
+                  px={4}
+                  className="print-section"
+                >
                   <VStack align="center" spacing={3} w="full">
                     {selectedCandidate.svg_photo ? (
                       <Box boxSize="70px">
                         <img
                           src={selectedCandidate.svg_photo}
                           alt={selectedCandidate.name}
-                          style={{ width: "70px", height: "70px", borderRadius: "50%" }}
+                          style={{
+                            width: "70px",
+                            height: "70px",
+                            borderRadius: "50%",
+                          }}
                         />
                       </Box>
                     ) : (
-                      <Avatar size="sm" name={selectedCandidate.name} />
+                      <Avatar size="lg" name={selectedCandidate.name} />
                     )}
                     <VStack spacing={1} mb={4}>
                       <Heading size="md">{selectedCandidate.name}</Heading>
-                      <Text color="gray.500" fontSize="md">{selectedCandidate.applied_role}</Text>
+                      <Text color="gray.500" fontSize="md">
+                        {selectedCandidate.applied_role}
+                      </Text>
                     </VStack>
                     <Flex gap={12} justify="center" className="contact-info">
                       <Box>
                         <Flex gap={3}>
                           <Icon as={EmailIcon} color="gray.500" boxSize={5} />
                           <Box>
-                            <Text fontSize="xs" color="gray.500" letterSpacing="wide">EMAIL</Text>
-                            <Text fontSize="sm" color="white">{selectedCandidate.email}</Text>
+                            <Text
+                              fontSize="xs"
+                              color="gray.500"
+                              letterSpacing="wide"
+                            >
+                              EMAIL
+                            </Text>
+                            <Text fontSize="sm" color="white">
+                              {selectedCandidate.email}
+                            </Text>
                           </Box>
                         </Flex>
                       </Box>
@@ -488,8 +610,16 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                         <Flex gap={3}>
                           <Icon as={PhoneIcon} color="gray.500" boxSize={5} />
                           <Box>
-                            <Text fontSize="xs" color="gray.500" letterSpacing="wide">PHONE</Text>
-                            <Text fontSize="sm" color="white">{selectedCandidate.phone}</Text>
+                            <Text
+                              fontSize="xs"
+                              color="gray.500"
+                              letterSpacing="wide"
+                            >
+                              PHONE
+                            </Text>
+                            <Text fontSize="sm" color="white">
+                              {selectedCandidate.phone}
+                            </Text>
                           </Box>
                         </Flex>
                       </Box>
@@ -498,10 +628,28 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                 </Box>
 
                 {/* Application Details */}
-                <Box w="full" className="print-section" bg="#1A1A1A" borderRadius="lg" p={4} mt={4} mb={4}>
-                  <Text fontSize="xl" fontWeight="semibold" mb={4}>Application Details</Text>
+                <Box
+                  w="full"
+                  className="print-section"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  p={4}
+                  mt={4}
+                  mb={4}
+                >
+                  <Text fontSize="xl" fontWeight="semibold" mb={4}>
+                    Application Details
+                  </Text>
                   <VStack spacing={0} align="stretch" position="relative">
-                    <Box position="absolute" left="15px" top="30px" bottom="30px" width="2px" bg="#333" zIndex={0} />
+                    <Box
+                      position="absolute"
+                      left="15px"
+                      top="30px"
+                      bottom="30px"
+                      width="2px"
+                      bg="#333"
+                      zIndex={0}
+                    />
                     {[
                       { label: "Screening" },
                       { label: "Design Challenge" },
@@ -509,31 +657,59 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                       { label: "HR Round" },
                       { label: "Hired" },
                     ].map((stage, idx) => {
-                      const currentStageIndex = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"].findIndex(
-                        (s) => s === selectedCandidate.stage
-                      );
+                      const currentStageIndex = [
+                        "Screening",
+                        "Design Challenge",
+                        "Interview",
+                        "HR Round",
+                        "Hired",
+                      ].findIndex((s) => s === selectedCandidate.stage);
                       let status = "pending";
                       if (idx < currentStageIndex) status = "completed";
                       else if (idx === currentStageIndex) status = "current";
                       return (
-                        <Flex key={stage.label} align="flex-start" gap={4} py={3} position="relative">
+                        <Flex
+                          key={stage.label}
+                          align="flex-start"
+                          gap={4}
+                          py={3}
+                          position="relative"
+                        >
                           <Circle
                             size="8"
-                            bg={status === "completed" ? "green.500" : status === "current" ? "#FFB547" : "#333"}
+                            bg={
+                              status === "completed"
+                                ? "green.500"
+                                : status === "current"
+                                ? "#FFB547"
+                                : "#333"
+                            }
                             zIndex={1}
                           >
                             {status === "completed" ? (
                               <CheckIcon color="white" boxSize={4} />
                             ) : (
-                              <Text color="white" fontSize="sm">{idx + 1}</Text>
+                              <Text color="white" fontSize="sm">
+                                {idx + 1}
+                              </Text>
                             )}
                           </Circle>
                           <Box flex="1">
-                            <Text fontSize="sm" color="white" mb={0}>{stage.label}</Text>
+                            <Text fontSize="sm" color="white" mb={0}>
+                              {stage.label}
+                            </Text>
                           </Box>
                           {status === "current" && (
-                            <Box bg="#2A2A2A" px={3} py={1} borderRadius="full" alignSelf="center">
-                              <Text fontSize="xs" color="#FFB547">Under Review</Text>
+                            <Box
+                              bg="#2A2A2A"
+                              px={3}
+                              py={1}
+                              borderRadius="full"
+                              alignSelf="center"
+                            >
+                              <Text fontSize="xs" color="#FFB547">
+                                Under Review
+                              </Text>
                             </Box>
                           )}
                         </Flex>
@@ -543,36 +719,74 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                 </Box>
 
                 {/* Experience Section */}
-                <Box w="full" bg="#1A1A1A" borderRadius="lg" p={6} mt={4} className="print-section">
-                  <Text fontSize="lg" fontWeight="semibold" mb={4}>Experience</Text>
+                <Box
+                  w="full"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  p={6}
+                  mt={4}
+                  className="print-section"
+                >
+                  <Text fontSize="lg" fontWeight="semibold" mb={4}>
+                    Experience
+                  </Text>
                   <VStack align="stretch" spacing={6}>
-                    {selectedCandidate.experience_details
-                      ? JSON.parse(selectedCandidate.experience_details).map((exp, i) => (
+                    {selectedCandidate.experience_details ? (
+                      JSON.parse(selectedCandidate.experience_details).map(
+                        (exp, i) => (
                           <Box key={i} className="experience-item">
                             <Flex align="center" gap={3} mb={2}>
                               <Avatar size="sm" name={exp.company} />
                               <Box>
-                                <Text fontWeight="medium" color="white">{exp.company}</Text>
-                                <Text fontSize="sm" color="gray.400">{exp.role}</Text>
-                                <Text fontSize="sm" color="gray.500">{exp.duration}</Text>
+                                <Text fontWeight="medium" color="white">
+                                  {exp.company}
+                                </Text>
+                                <Text fontSize="sm" color="gray.400">
+                                  {exp.role}
+                                </Text>
+                                <Text fontSize="sm" color="gray.500">
+                                  {exp.duration}
+                                </Text>
                               </Box>
                             </Flex>
-                            <Text fontSize="sm" color="gray.400" mt={2}>{exp.description}</Text>
+                            <Text fontSize="sm" color="gray.400" mt={2}>
+                              {exp.description}
+                            </Text>
                           </Box>
-                        ))
-                      : <Text color="gray.500">No experience details available</Text>}
+                        )
+                      )
+                    ) : (
+                      <Text color="gray.500">
+                        No experience details available
+                      </Text>
+                    )}
                   </VStack>
                 </Box>
 
                 {/* Projects Section */}
-                <Box w="full" bg="#1A1A1A" borderRadius="lg" p={6} mt={4} mb={8} className="print-section">
-                  <Text fontSize="lg" fontWeight="semibold" mb={4}>Projects</Text>
+                <Box
+                  w="full"
+                  bg="#1A1A1A"
+                  borderRadius="lg"
+                  p={6}
+                  mt={4}
+                  mb={8}
+                  className="print-section"
+                >
+                  <Text fontSize="lg" fontWeight="semibold" mb={4}>
+                    Projects
+                  </Text>
                   <VStack align="stretch" spacing={4}>
-                    {selectedCandidate.projects
-                      ? JSON.parse(selectedCandidate.projects).map((project, i) => (
+                    {selectedCandidate.projects ? (
+                      JSON.parse(selectedCandidate.projects).map(
+                        (project, i) => (
                           <Box key={i} className="project-item">
-                            <Text fontWeight="medium" color="white">{project.name}</Text>
-                            <Text fontSize="sm" color="gray.400" mt={1}>{project.description}</Text>
+                            <Text fontWeight="medium" color="white">
+                              {project.name}
+                            </Text>
+                            <Text fontSize="sm" color="gray.400" mt={1}>
+                              {project.description}
+                            </Text>
                             {project.link && (
                               <Button
                                 as="a"
@@ -588,8 +802,11 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                               </Button>
                             )}
                           </Box>
-                        ))
-                      : <Text color="gray.500">No projects available</Text>}
+                        )
+                      )
+                    ) : (
+                      <Text color="gray.500">No projects available</Text>
+                    )}
                   </VStack>
                 </Box>
 

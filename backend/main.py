@@ -201,6 +201,7 @@ def import_candidates(file: UploadFile = File(...), db: Session = Depends(get_db
     candidates_data = json.loads(contents.decode("utf-8"))
 
     for candidate_data in candidates_data:
+        print(candidate_data)
         urls = {}
         if "resume_url" in candidate_data:
             urls["resume"] = candidate_data["resume_url"]
@@ -211,18 +212,26 @@ def import_candidates(file: UploadFile = File(...), db: Session = Depends(get_db
         
         num_attachments = len(urls)
         
+        # Ensure complex data types are serialized to JSON strings
+        # Convert complex data types to JSON strings
+        experience_data = candidate_data.get("experience_details")
+        projects_data = candidate_data.get("projects")
+        
         candidate = Candidate(
             name=candidate_data["name"],
             email=candidate_data["email"],
             phone=candidate_data["phone"],
             applied_role=candidate_data["applied_role"],
-            experience=candidate_data["experience"],
+            experience=str(len(experience_data)) + " years" if isinstance(experience_data, list) else "Not specified",
             status=candidate_data.get("status", "Pending"),
             urls=json.dumps(urls) if urls else None,
             rating=float(candidate_data.get("rating", 0.0)),
             stage=candidate_data.get("stage", "Screening"),
             location=candidate_data.get("location", None),
             attachments=num_attachments,
+            svg_photo=candidate_data.get("svg_photo", None),
+            projects=json.dumps(projects_data) if projects_data else None,
+            experience_details=json.dumps(experience_data) if experience_data else None
         )
         db.add(candidate)
     db.commit()
