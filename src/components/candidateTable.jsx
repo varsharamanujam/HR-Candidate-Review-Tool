@@ -59,6 +59,7 @@ import {
   fetchCandidates,
   filterCandidates,
   generateCandidatePDF,
+  updateCandidateStatus,
 } from "../api";
 
 // Utility: Generate options for the last 12 months
@@ -253,6 +254,45 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
     );
   }
 
+  const handleNextStep = async () => {
+    // Define the stages array inside the function
+    const stages = ["Screening", "Design Challenge", "Interview", "HR Round", "Hired"];
+    
+    const currentStageIndex = stages.indexOf(selectedCandidate.stage);
+
+    if (currentStageIndex === -1) {
+      console.error("Invalid stage:", selectedCandidate.stage);
+      return;
+    }
+
+    // Ensure you don't go beyond the last stage
+    const nextStageIndex = Math.min(currentStageIndex + 1, stages.length - 1);
+    const nextStage = stages[nextStageIndex];
+
+    try {
+      const updatedCandidate = await updateCandidateStatus(selectedCandidate.id, {
+        status: "In Progress",  // or any status you want
+        stage: nextStage
+      });
+
+      console.log("Candidate moved to:", updatedCandidate.stage);
+      alert(`Moved to: ${updatedCandidate.stage}`);
+      
+    } catch (error) {
+      console.error("Error updating candidate stage:", error);
+    }
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchCandidates();
+        setCandidates(data);
+      } catch (err) {
+        console.error("Error fetching candidates:", err);
+      }
+      setLoading(false);
+    };
+    loadData();
+  };
   return (
     <Box
       bg="#1E1E1E"
@@ -819,6 +859,7 @@ const CandidateTable = ({ candidates: initialCandidates, onSelect }) => {
                     _hover={{ opacity: 0.9 }}
                     borderRadius="none"
                     rightIcon={<ArrowUpIcon transform="rotate(45deg)" />}
+                    onClick={handleNextStep}
                   >
                     Move to Next Step
                   </Button>
